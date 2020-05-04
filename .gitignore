@@ -1,0 +1,14 @@
+.idea
+__pycache__
+data
+validation
+train
+*.log
+result
+workdir
+doctrees/
+.buildinfo
+docs/source/_*
+dist/
+build/
+neural_pipeline.egg-info
