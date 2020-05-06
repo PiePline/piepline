@@ -184,14 +184,12 @@ class CheckpointsManagerTests(UseFileStructure):
         fsm = FileStructManager(base_dir=self.base_dir, is_continue=False)
         cm = CheckpointsManager(fsm)
 
-        f = open(cm.weights_file(), 'w')
-        f.write('1')
-        f.close()
-        f = open(cm.optimizer_state_file(), 'w')
-        f.write('2')
-        f = open(cm.trainer_file(), 'w')
-        f.write('3')
-        f.close()
+        with open(cm.weights_file(), 'w') as f:
+            f.write('1')
+        with open(cm.optimizer_state_file(), 'w') as f:
+            f.write('2')
+        with open(cm.trainer_file(), 'w') as f:
+            f.write('3')
 
         cm.pack()
 
