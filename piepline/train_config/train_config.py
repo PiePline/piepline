@@ -6,6 +6,8 @@ from torch.nn import Module
 import numpy as np
 from torch.utils.data import DataLoader
 
+from utils.events_manager import Event
+
 try:
     from IPython import get_ipython
 
@@ -18,7 +20,7 @@ except ImportError:
     from tqdm import tqdm
 
 from piepline.data_producer.data_producer import DataProducer
-from piepline.data_processor.data_processor import TrainDataProcessor
+from piepline.data_processor.data_processor import TrainDataProcessor, DataProcessor
 
 __all__ = ['TrainConfig', 'ComparableTrainConfig', 'TrainStage', 'ValidationStage', 'AbstractMetric', 'MetricsGroup', 'MetricsProcessor', 'AbstractStage',
            'StandardStage']
@@ -273,6 +275,7 @@ class AbstractStage(metaclass=ABCMeta):
 
     def __init__(self, name: str):
         self._name = name
+        self._stage_end_event = Event(self)
 
     def name(self) -> str:
         """
@@ -291,10 +294,20 @@ class AbstractStage(metaclass=ABCMeta):
         return None
 
     @abstractmethod
-    def run(self, data_processor: TrainDataProcessor) -> None:
+    def _run(self, data_processor: DataProcessor) -> None:
+        """
+        Internal method with stage run implementation. This method was called in :meth:`run`
+        """
+
+    def run(self, data_processor: DataProcessor) -> None:
         """
         Run stage
+
+        Args:
+            data_processor (class:`DataProcessor`): data processor object
         """
+        self._run(data_processor)
+        self._stage_end_event()
 
     def get_losses(self) -> np.ndarray or None:
         """
@@ -331,7 +344,7 @@ class StandardStage(AbstractStage):
         self._losses = None
         self._is_train = is_train
 
-    def run(self, data_processor: TrainDataProcessor) -> None:
+    def _run(self, data_processor: TrainDataProcessor) -> None:
         """
         Run stage. This iterate by DataProducer and show progress in stdout
 
@@ -340,9 +353,9 @@ class StandardStage(AbstractStage):
         if self.data_loader is None:
             self.data_loader = self.data_producer.get_loader()
 
-        self._run(self.data_loader, self.name(), data_processor)
+        self._run_internal(self.data_loader, self.name(), data_processor)
 
-    def _run(self, data_loader: DataLoader, name: str, data_processor: TrainDataProcessor):
+    def _run_internal(self, data_loader: DataLoader, name: str, data_processor: TrainDataProcessor):
         with tqdm(data_loader, desc=name, leave=False) as t:
             self._losses = None
             for batch in t:

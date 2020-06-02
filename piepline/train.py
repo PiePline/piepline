@@ -17,6 +17,8 @@ from piepline.utils.fsm import MultipleFSM
 
 __all__ = ['Trainer']
 
+from utils.events_manager import Event
+
 
 class LearningRate:
     """
@@ -135,7 +137,6 @@ class Trainer:
 
         self.__epoch_num = 100
         self._resume_from = None
-        self._on_epoch_end = []
         self._best_state_rule = None
 
         self._train_config = train_config
@@ -143,6 +144,8 @@ class Trainer:
         self._lr = LearningRate(self._data_processor.get_lr())
 
         self._stop_rules = []
+
+        self._epoch_end_event = Event(self)
 
     def set_epoch_num(self, epoch_number: int) -> 'Trainer':
         """
@@ -211,12 +214,8 @@ class Trainer:
                     cur_best_state = new_best_state
 
                 self._data_processor.update_lr(self._lr.value())
-
-                for clbk in self._on_epoch_end:
-                    clbk()
-
                 self._update_losses()
-                self.__iterate_by_stages(lambda s: s.on_epoch_end())
+                self._epoch_end_event()
 
     def _resume(self) -> int:
         if self._resume_from == 'last':
@@ -244,6 +243,7 @@ class Trainer:
         :param cur_best_state: current best stage metric value
         :return: new best stage metric value or None if it not update
         """
+
         def save_trainer(ckp_manager):
             with open(ckp_manager.trainer_file(), 'w') as out:
                 json.dump({'last_epoch': epoch_idx}, out)
@@ -308,16 +308,6 @@ class Trainer:
         self._best_state_rule = None
         return self
 
-    def add_on_epoch_end_callback(self, callback: callable) -> 'Trainer':
-        """
-        Add callback, that will be called after every epoch end
-
-        :param callback: method, that will be called. This method may not get any parameters
-        :return: self object
-        """
-        self._on_epoch_end.append(callback)
-        return self
-
     def add_stop_rule(self, rule: callable) -> 'Trainer':
         """
         Add the rule that control training process interruption
@@ -345,12 +335,3 @@ class Trainer:
         :return: TrainConfig object
         """
         return self._train_config
-
-    def __iterate_by_stages(self, func: callable) -> None:
-        """
-        Internal method, that used for iterate by stages
-
-        :param func: callback, that calls for every stage
-        """
-        for stage in self._train_config.stages():
-            func(stage)
