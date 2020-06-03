@@ -7,17 +7,17 @@ import numpy as np
 import torch
 from torch.nn import Module
 
-from piepline import AbstractMetric
+from piepline import AbstractMetric, events_container
 
 from piepline.data_processor import TrainDataProcessor
 from piepline.utils import FileStructManager, CheckpointsManager
-from piepline.train_config.train_config import TrainConfig, ComparableTrainConfig
+from piepline.train_config.train_config import TrainConfig
 from piepline.monitoring import MonitorHub, ConsoleMonitor
 from piepline.utils.fsm import MultipleFSM
 
 __all__ = ['Trainer']
 
-from utils.events_manager import Event
+from utils.messages_system import MessageReceiver
 
 
 class LearningRate:
@@ -98,7 +98,7 @@ class DecayingLR(LearningRate):
         self._cur_min_target_val = None
 
 
-class Trainer:
+class Trainer(EventsEmitter, MessageReceiver):
     """
     Class, that run drive process.
 
@@ -130,6 +130,8 @@ class Trainer:
             return self._msg
 
     def __init__(self, train_config: TrainConfig, fsm: FileStructManager, device: torch.device = None):
+        MessageReceiver.__init__(self)
+
         self._fsm = fsm
         self.monitor_hub = MonitorHub()
 
@@ -145,7 +147,12 @@ class Trainer:
 
         self._stop_rules = []
 
-        self._epoch_end_event = Event(self)
+        events_container._add_event()
+        self._add_event('EPOCH_END')
+        self._add_event('EPOCH_START')
+        self._add_event('BEST_STATE_ACHIEVED')
+
+        self._add_message('NEED_STOP')
 
     def set_epoch_num(self, epoch_number: int) -> 'Trainer':
         """
@@ -195,12 +202,15 @@ class Trainer:
         start_epoch_idx = 1
         if self._resume_from is not None:
             start_epoch_idx += self._resume()
-        self.monitor_hub.add_monitor(ConsoleMonitor())
+
+        self._connect_stages_to_events()
 
         with self.monitor_hub:
             for epoch_idx in range(start_epoch_idx, self.__epoch_num + start_epoch_idx):
-                if True in [stop_rule() for stop_rule in self._stop_rules]:
+                if True in self.message('NEED_STOP').read():
                     break
+
+                self.event('EPOCH_START')()
 
                 self.monitor_hub.set_epoch_num(epoch_idx)
                 for stage in self._train_config.stages():
@@ -215,7 +225,8 @@ class Trainer:
 
                 self._data_processor.update_lr(self._lr.value())
                 self._update_losses()
-                self._epoch_end_event()
+
+                self.event('EPOCH_END')()
 
     def _resume(self) -> int:
         if self._resume_from == 'last':
@@ -262,6 +273,9 @@ class Trainer:
                     save_trainer(best_ckpts_manager)
                     best_ckpts_manager.pack()
                     self._data_processor.set_checkpoints_manager(ckpts_manager)
+
+                    self.event('BEST_STATE_ACHIEVED')()
+
                     return new_best_state
 
         self._data_processor.save_state()
@@ -335,3 +349,8 @@ class Trainer:
         :return: TrainConfig object
         """
         return self._train_config
+
+    def _connect_stages_to_events(self):
+        for stage in self._train_config.stages():
+            self._epoch_end_event.add_callback(lambda x: stage.on_epoch_end())
+            stage.

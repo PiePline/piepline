@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from typing import List
 
 from torch import Tensor
 from torch.optim import Optimizer
@@ -6,7 +7,7 @@ from torch.nn import Module
 import numpy as np
 from torch.utils.data import DataLoader
 
-from utils.events_manager import Event
+from utils.events_system import Event
 
 try:
     from IPython import get_ipython
@@ -529,7 +530,7 @@ class TrainConfig:
         """
         return self._optimizer
 
-    def stages(self) -> [AbstractStage]:
+    def stages(self) -> List[AbstractStage]:
         """
         Get list of stages
 
@@ -539,38 +540,3 @@ class TrainConfig:
 
     def model(self) -> Module:
         return self._model
-
-
-class ComparableTrainConfig:
-    """
-    Train process setting storage with name. Used for train with few train configs in one time
-
-    :param name: name of train config
-    """
-
-    def __init__(self, name: str = None):
-        self._name = name
-
-    @abstractmethod
-    def get_train_config(self) -> 'TrainConfig':
-        """
-        Get train config
-
-        :return: TrainConfig object
-        """
-
-    @abstractmethod
-    def get_params(self) -> {}:
-        """
-        Get params of this config
-
-        :return:
-        """
-
-    def get_metric_for_compare(self) -> float or None:
-        """
-        Get metric for compare train configs
-
-        :return: metric value or None, if compare doesn't needed
-        """
-        return None
