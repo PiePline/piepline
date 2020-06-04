@@ -6,6 +6,9 @@ class Event:
         self._callbacks = []
         self._object = obj
 
+    def object(self):
+        return self._object
+
     def add_callback(self, clbk: callable):
         self._callbacks.append(clbk)
 
@@ -15,21 +18,24 @@ class Event:
 
 
 class EventExistsException(Exception):
-    def __init__(self, msg):
-        super.__init__(msg)
+    def __init__(self, msg: str):
+        super().__init__(msg)
 
 
 class EventsContainer:
     def __init__(self):
         self._events = {}
 
-    def _add_event(self, name: str):
+    def add_event(self, name: str, event: Event) -> Event:
         if name in self._events:
             raise EventExistsException("Event '{}' also exist".format(name))
-        self._events[name] = Event(self)
+        if event.object() not in self._events:
+            self._events[event.object()] = {}
+        self._events[event.object()][name] = event
+        return event
 
-    def event(self, name: str) -> Event:
-        return self._events[name]
+    def event(self, transmitter: object, name: str) -> Event:
+        return self._events[transmitter][name]
 
     def events_names(self) -> List[str]:
         return list(self._events.keys())

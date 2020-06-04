@@ -8,7 +8,10 @@ import numpy as np
 try:
     from tensorboardX import SummaryWriter
 except ImportError:
-    print("Looks like tensorboardX doesn't installed. Install in via 'pip install tensorboardX' and try again")
+    try:
+        from torch.utils.tensorboard import SummaryWriter
+    except ImportError:
+        print("Can't import tensorboard. Try to install tensorboardX or update PyTorch version")
 
 from piepline.monitoring import AbstractMonitor
 from piepline.data_processor import Model

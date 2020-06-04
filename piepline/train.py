@@ -13,11 +13,12 @@ from piepline.data_processor import TrainDataProcessor
 from piepline.utils import FileStructManager, CheckpointsManager
 from piepline.train_config.train_config import TrainConfig
 from piepline.monitoring import MonitorHub, ConsoleMonitor
+from piepline.utils.events_system import Event
 from piepline.utils.fsm import MultipleFSM
 
 __all__ = ['Trainer']
 
-from utils.messages_system import MessageReceiver
+from piepline.utils.messages_system import MessageReceiver
 
 
 class LearningRate:
@@ -98,7 +99,7 @@ class DecayingLR(LearningRate):
         self._cur_min_target_val = None
 
 
-class Trainer(EventsEmitter, MessageReceiver):
+class Trainer(MessageReceiver):
     """
     Class, that run drive process.
 
@@ -147,10 +148,9 @@ class Trainer(EventsEmitter, MessageReceiver):
 
         self._stop_rules = []
 
-        events_container._add_event()
-        self._add_event('EPOCH_END')
-        self._add_event('EPOCH_START')
-        self._add_event('BEST_STATE_ACHIEVED')
+        self._epoch_end_event = events_container.add_event('EPOCH_END', Event(self))
+        self._epoch_start_event = events_container.add_event('EPOCH_START', Event(self))
+        self._best_state_achieved_event = events_container.add_event('BEST_STATE_ACHIEVED', Event(self))
 
         self._add_message('NEED_STOP')
 
@@ -210,7 +210,7 @@ class Trainer(EventsEmitter, MessageReceiver):
                 if True in self.message('NEED_STOP').read():
                     break
 
-                self.event('EPOCH_START')()
+                self._epoch_start_event()
 
                 self.monitor_hub.set_epoch_num(epoch_idx)
                 for stage in self._train_config.stages():
@@ -226,7 +226,7 @@ class Trainer(EventsEmitter, MessageReceiver):
                 self._data_processor.update_lr(self._lr.value())
                 self._update_losses()
 
-                self.event('EPOCH_END')()
+                self._epoch_end_event()
 
     def _resume(self) -> int:
         if self._resume_from == 'last':
@@ -274,7 +274,7 @@ class Trainer(EventsEmitter, MessageReceiver):
                     best_ckpts_manager.pack()
                     self._data_processor.set_checkpoints_manager(ckpts_manager)
 
-                    self.event('BEST_STATE_ACHIEVED')()
+                    self._best_state_achieved_event()
 
                     return new_best_state
 
@@ -353,4 +353,3 @@ class Trainer(EventsEmitter, MessageReceiver):
     def _connect_stages_to_events(self):
         for stage in self._train_config.stages():
             self._epoch_end_event.add_callback(lambda x: stage.on_epoch_end())
-            stage.

@@ -15,8 +15,8 @@ class Message:
 
 class MessageReceiver:
     class MessageReceiverException(Exception):
-        def __init__(self, msg):
-            super.__init__(msg)
+        def __init__(self, msg: str):
+            super().__init__(msg)
 
     def __init__(self):
         self._messages = {}
@@ -25,7 +25,7 @@ class MessageReceiver:
         if name in self._messages:
             if name in self._messages:
                 raise MessageReceiver.MessageReceiverException("Event '{}' also exist".format(name))
-            self._messages[name] = Message()
+        self._messages[name] = Message()
 
     def message(self, name: str) -> Message:
         return self._messages[name]

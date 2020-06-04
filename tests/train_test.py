@@ -4,7 +4,7 @@ from random import randint
 import torch
 import numpy as np
 
-from piepline import Trainer
+from piepline import Trainer, events_container
 from piepline.train import DecayingLR
 from piepline.train_config import TrainConfig, TrainStage, MetricsProcessor
 from piepline.train_config.train_config import ValidationStage
@@ -116,7 +116,7 @@ class TrainTest(UseFileStructure):
             self.assertTrue(os.path.exists(checkpoint_file))
             os.remove(checkpoint_file)
 
-        trainer.add_on_epoch_end_callback(on_epoch_end)
+        events_container.event(trainer, "EPOCH_END").add_callback(lambda x: on_epoch_end())
         trainer.train()
 
     def test_savig_best_states(self):
@@ -150,5 +150,5 @@ class TrainTest(UseFileStructure):
             self.assertFalse(os.path.exists(best_checkpoint_file))
             os.remove(checkpoint_file)
 
-        trainer.add_on_epoch_end_callback(lambda: on_epoch_end(first_val))
+        events_container.event(trainer, "EPOCH_END").add_callback(lambda x: on_epoch_end(first_val))
         trainer.train()

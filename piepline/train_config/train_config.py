@@ -7,7 +7,7 @@ from torch.nn import Module
 import numpy as np
 from torch.utils.data import DataLoader
 
-from utils.events_system import Event
+from piepline.utils.events_system import Event
 
 try:
     from IPython import get_ipython
@@ -417,7 +417,7 @@ class TrainStage(StandardStage):
         def exec(self, data_processor: TrainDataProcessor, losses: np.ndarray, indices: []) -> None:
             num_losses = int(losses.size * self._part)
             idxs = np.argpartition(losses, -num_losses)[-num_losses:]
-            self._run(self.data_producer.get_loader([indices[i] for i in idxs]), self.name(), data_processor)
+            self._run_internal(self.data_producer.get_loader([indices[i] for i in idxs]), self.name(), data_processor)
 
     def __init__(self, data_producer: DataProducer, metrics_processor: MetricsProcessor = None, name: str = 'train'):
         super().__init__(name, True, data_producer, metrics_processor)

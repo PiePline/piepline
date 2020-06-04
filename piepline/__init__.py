@@ -1,6 +1,6 @@
 __version__ = '0.2.2'
 
-from utils.events_system import EventsContainer
+from piepline.utils.events_system import EventsContainer
 
 events_container = EventsContainer()
 
