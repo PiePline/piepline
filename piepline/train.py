@@ -2,19 +2,15 @@
 The main module for training process
 """
 import json
-import os
-import numpy as np
 import torch
-from torch.nn import Module
 
-from piepline import AbstractMetric, events_container
+from piepline import events_container
 
 from piepline.data_processor import TrainDataProcessor
 from piepline.utils import FileStructManager, CheckpointsManager
 from piepline.train_config.train_config import TrainConfig
-from piepline.monitoring import MonitorHub, ConsoleMonitor
+from piepline.monitoring import MonitorHub
 from piepline.utils.events_system import Event
-from piepline.utils.fsm import MultipleFSM
 
 __all__ = ['Trainer']
 
@@ -145,8 +141,6 @@ class Trainer(MessageReceiver):
         self._train_config = train_config
         self._data_processor = TrainDataProcessor(self._train_config, device).set_checkpoints_manager(self._checkpoint_manager)
         self._lr = LearningRate(self._data_processor.get_lr())
-
-        self._stop_rules = []
 
         self._epoch_end_event = events_container.add_event('EPOCH_END', Event(self))
         self._epoch_start_event = events_container.add_event('EPOCH_START', Event(self))
@@ -320,26 +314,6 @@ class Trainer(MessageReceiver):
         :return: self object
         """
         self._best_state_rule = None
-        return self
-
-    def add_stop_rule(self, rule: callable) -> 'Trainer':
-        """
-        Add the rule that control training process interruption
-
-        Params:
-            rule (callable): callable, that doesn't get params and return boolean. When one of rules returns `True` training loop will be interrupted
-
-        Returns:
-            self object
-
-        Examples:
-
-        .. highlight:: python
-        .. code-block:: python
-
-            trainer.add_stop_rule(lambda: trainer.data_processor().get_lr() < 1e-6)
-        """
-        self._stop_rules.append(rule)
         return self
 
     def train_config(self) -> TrainConfig:

@@ -7,6 +7,7 @@ from torch.nn import Module
 import numpy as np
 from torch.utils.data import DataLoader
 
+from piepline import events_container, AbstractStage
 from piepline.utils.events_system import Event
 
 try:
@@ -23,7 +24,8 @@ except ImportError:
 from piepline.data_producer.data_producer import DataProducer
 from piepline.data_processor.data_processor import TrainDataProcessor, DataProcessor
 
-__all__ = ['TrainConfig', 'ComparableTrainConfig', 'TrainStage', 'ValidationStage', 'AbstractMetric', 'MetricsGroup', 'MetricsProcessor', 'AbstractStage',
+__all__ = ['TrainConfig', 'ComparableTrainConfig', 'TrainStage', 'ValidationStage', 'AbstractMetric', 'MetricsGroup',
+           'MetricsProcessor', 'AbstractStage',
            'StandardStage']
 
 
@@ -178,7 +180,8 @@ class MetricsGroup:
         :param level: parent group level
         """
         if level > 2:
-            raise self.MGException("The metric group {} have {} level. There must be no more than 2 levels".format(self.__name, self.__lvl))
+            raise self.MGException(
+                "The metric group {} have {} level. There must be no more than 2 levels".format(self.__name, self.__lvl))
         self.__lvl = level
         for group in self.__metrics_groups:
             group._set_level(self.__lvl + 1)
@@ -210,9 +213,11 @@ class MetricsProcessor:
     Collection for all :class:`AbstractMetric`'s and :class:`MetricsGroup`'s
     """
 
-    def __init__(self):
+    def __init__(self, stage: AbstractStage):
         self._metrics = []
         self._metrics_groups = []
+
+        events_container.event(stage, 'EPOCH_END').add_callback(lambda s: sta)
 
     def add_metric(self, metric: AbstractMetric) -> AbstractMetric:
         """
@@ -334,16 +339,17 @@ class StandardStage(AbstractStage):
     After stop iteration ValidationStage accumulate losses from :class:`DataProcessor`.
 
     :param data_producer: :class:`DataProducer` object
-    :param metrics_processor: :class:`MetricsProcessor`
     """
 
-    def __init__(self, stage_name: str, is_train: bool, data_producer: DataProducer, metrics_processor: MetricsProcessor = None):
+    def __init__(self, stage_name: str, is_train: bool, data_producer: DataProducer):
         super().__init__(name=stage_name)
         self.data_loader = None
         self.data_producer = data_producer
-        self._metrics_processor = metrics_processor
         self._losses = None
         self._is_train = is_train
+
+        self._epoch_end_event = events_container.add_event('EPOCH_END', Event(self))
+        self._epoch_start_event = events_container.add_event('EPOCH_START', Event(self))
 
     def _run(self, data_processor: TrainDataProcessor) -> None:
         """
@@ -357,11 +363,15 @@ class StandardStage(AbstractStage):
         self._run_internal(self.data_loader, self.name(), data_processor)
 
     def _run_internal(self, data_loader: DataLoader, name: str, data_processor: TrainDataProcessor):
+        self._epoch_start_event()
+
         with tqdm(data_loader, desc=name, leave=False) as t:
             self._losses = None
             for batch in t:
                 self._process_batch(batch, data_processor)
                 t.set_postfix({'loss': '[{:4f}]'.format(np.mean(self._losses))})
+
+        self._epoch_end_event()
 
     def _process_batch(self, batch, data_processor: TrainDataProcessor):
         cur_loss = data_processor.process_batch(batch, metrics_processor=self.metrics_processor(), is_train=self._is_train)
@@ -370,14 +380,6 @@ class StandardStage(AbstractStage):
         else:
             self._losses = np.append(self._losses, cur_loss)
 
-    def metrics_processor(self) -> MetricsProcessor or None:
-        """
-        Get merics processor of this stage
-
-        :return: :class:`MetricsProcessor` if specified otherwise None
-        """
-        return self._metrics_processor
-
     def get_losses(self) -> np.ndarray:
         """
         Get losses from this stage
@@ -385,15 +387,6 @@ class StandardStage(AbstractStage):
         :return: array of losses
         """
         return self._losses
-
-    def on_epoch_end(self) -> None:
-        """
-        Method, that calls after every epoch
-        """
-        self._losses = None
-        metrics_processor = self.metrics_processor()
-        if metrics_processor is not None:
-            metrics_processor.reset_metrics()
 
 
 class TrainStage(StandardStage):

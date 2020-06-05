@@ -3,8 +3,9 @@ from random import randint
 
 import torch
 import numpy as np
+from torch import Tensor
 
-from piepline import Trainer, events_container
+from piepline import Trainer, events_container, AbstractMetric
 from piepline.train import DecayingLR
 from piepline.train_config import TrainConfig, TrainStage, MetricsProcessor
 from piepline.train_config.train_config import ValidationStage
@@ -19,6 +20,14 @@ __all__ = ['TrainTest']
 class SimpleLoss(torch.nn.Module):
     def forward(self, output, target):
         return output / target
+
+
+class DummyMetric(AbstractMetric):
+    def __init__(self):
+        super().__init__('dummy_metric')
+
+    def calc(self, output: Tensor, target: Tensor) -> np.ndarray or float:
+        return float(torch.mean(output - target).numpy())
 
 
 class TrainTest(UseFileStructure):
@@ -152,3 +161,32 @@ class TrainTest(UseFileStructure):
 
         events_container.event(trainer, "EPOCH_END").add_callback(lambda x: on_epoch_end(first_val))
         trainer.train()
+
+    def test_events(self):
+        fsm = FileStructManager(base_dir=self.base_dir, is_continue=False)
+        model = SimpleModel()
+        stage = TrainStage(TestDataProducer([{'data': torch.rand(1, 3), 'target': torch.rand(1)} for _ in list(range(20))]))
+        trainer = Trainer(TrainConfig(model, [stage], SimpleLoss(), torch.optim.SGD(model.parameters(), lr=0.1)),
+                          fsm).set_epoch_num(3).enable_best_states_saving(lambda: np.mean(stage.get_losses()))
+
+        metrics_processor = MetricsProcessor(stage)
+        metrics_processor.add_metric(DummyMetric())
+
+        def on_epoch_start(local_trainer: Trainer):
+            self.assertIs(local_trainer, trainer)
+
+        def on_epoch_end(local_trainer: Trainer):
+            self.assertIs(local_trainer, trainer)
+            self.assertEqual(20, local_trainer.train_config().stages()[0].get_losses().size)
+            self.assertEqual(0, local_trainer.train_config().stages()[0].metrics_processor().get_metrics()['metrics'][0].get_values().size)
+
+        def on_best_state_achieved(local_trainer: Trainer):
+            self.assertIs(local_trainer, trainer)
+
+        events_container.event(trainer, 'EPOCH_START').add_callback(on_epoch_start)
+        events_container.event(trainer, 'EPOCH_END').add_callback(on_epoch_end)
+        events_container.event(trainer, 'BEST_STATE_ACHIEVED').add_callback(on_best_state_achieved)
+
+        trainer.train()
+
+        self.assertEqual(None, trainer.train_config().stages()[0].get_losses())
