@@ -5,7 +5,7 @@ import torch
 import numpy as np
 from torch import Tensor
 
-from piepline import Trainer, events_container, AbstractMetric
+from piepline import Trainer, events_container, AbstractMetric, MonitorHub
 from piepline.train import DecayingLR
 from piepline.train_config import TrainConfig, TrainStage, MetricsProcessor
 from piepline.train_config.train_config import ValidationStage
@@ -169,24 +169,25 @@ class TrainTest(UseFileStructure):
         trainer = Trainer(TrainConfig(model, [stage], SimpleLoss(), torch.optim.SGD(model.parameters(), lr=0.1)),
                           fsm).set_epoch_num(3).enable_best_states_saving(lambda: np.mean(stage.get_losses()))
 
-        metrics_processor = MetricsProcessor(stage)
+        metrics_processor = MetricsProcessor().subscribe_to_stage(stage)
         metrics_processor.add_metric(DummyMetric())
 
-        def on_epoch_start(local_trainer: Trainer):
-            self.assertIs(local_trainer, trainer)
+        with MonitorHub(trainer, metrics_processor):
+            def on_epoch_start(local_trainer: Trainer):
+                self.assertIs(local_trainer, trainer)
 
-        def on_epoch_end(local_trainer: Trainer):
-            self.assertIs(local_trainer, trainer)
-            self.assertEqual(20, local_trainer.train_config().stages()[0].get_losses().size)
-            self.assertEqual(0, local_trainer.train_config().stages()[0].metrics_processor().get_metrics()['metrics'][0].get_values().size)
+            def on_epoch_end(local_trainer: Trainer):
+                self.assertIs(local_trainer, trainer)
+                self.assertEqual(20, local_trainer.train_config().stages()[0].get_losses().size)
+                self.assertEqual(0, local_trainer.train_config().stages()[0].metrics_processor().get_metrics()['metrics'][0].get_values().size)
 
-        def on_best_state_achieved(local_trainer: Trainer):
-            self.assertIs(local_trainer, trainer)
+            def on_best_state_achieved(local_trainer: Trainer):
+                self.assertIs(local_trainer, trainer)
 
-        events_container.event(trainer, 'EPOCH_START').add_callback(on_epoch_start)
-        events_container.event(trainer, 'EPOCH_END').add_callback(on_epoch_end)
-        events_container.event(trainer, 'BEST_STATE_ACHIEVED').add_callback(on_best_state_achieved)
+            events_container.event(trainer, 'EPOCH_START').add_callback(on_epoch_start)
+            events_container.event(trainer, 'EPOCH_END').add_callback(on_epoch_end)
+            events_container.event(trainer, 'BEST_STATE_ACHIEVED').add_callback(on_best_state_achieved)
 
-        trainer.train()
+            trainer.train()
 
-        self.assertEqual(None, trainer.train_config().stages()[0].get_losses())
+            self.assertEqual(None, trainer.train_config().stages()[0].get_losses())

@@ -7,7 +7,8 @@ from torch.nn import Module
 import numpy as np
 from torch.utils.data import DataLoader
 
-from piepline import events_container, AbstractStage
+from piepline import events_container, Trainer
+
 from piepline.utils.events_system import Event
 
 try:
@@ -24,7 +25,7 @@ except ImportError:
 from piepline.data_producer.data_producer import DataProducer
 from piepline.data_processor.data_processor import TrainDataProcessor, DataProcessor
 
-__all__ = ['TrainConfig', 'ComparableTrainConfig', 'TrainStage', 'ValidationStage', 'AbstractMetric', 'MetricsGroup',
+__all__ = ['TrainConfig', 'TrainStage', 'ValidationStage', 'AbstractMetric', 'MetricsGroup',
            'MetricsProcessor', 'AbstractStage',
            'StandardStage']
 
@@ -208,69 +209,6 @@ class MetricsGroup:
             group.reset()
 
 
-class MetricsProcessor:
-    """
-    Collection for all :class:`AbstractMetric`'s and :class:`MetricsGroup`'s
-    """
-
-    def __init__(self, stage: AbstractStage):
-        self._metrics = []
-        self._metrics_groups = []
-
-        events_container.event(stage, 'EPOCH_END').add_callback(lambda s: sta)
-
-    def add_metric(self, metric: AbstractMetric) -> AbstractMetric:
-        """
-        Add :class:`AbstractMetric` object
-
-        :param metric: metric to add
-        :return: metric object
-        :rtype: :class:`AbstractMetric`
-        """
-        self._metrics.append(metric)
-        return metric
-
-    def add_metrics_group(self, group: MetricsGroup) -> MetricsGroup:
-        """
-        Add :class:`MetricsGroup` object
-
-        :param group: metrics group to add
-        :return: metrics group object
-        :rtype: :class:`MetricsGroup`
-        """
-        self._metrics_groups.append(group)
-        return group
-
-    def calc_metrics(self, output, target) -> None:
-        """
-        Recursive calculate all metrics
-
-        :param output: predict value
-        :param target: target value
-        """
-        for metric in self._metrics:
-            metric.calc(output, target)
-        for group in self._metrics_groups:
-            group.calc(output, target)
-
-    def reset_metrics(self) -> None:
-        """
-        Recursive reset all metrics values
-        """
-        for metric in self._metrics:
-            metric.reset()
-        for group in self._metrics_groups:
-            group.reset()
-
-    def get_metrics(self) -> {}:
-        """
-        Get metrics and groups as dict
-
-        :return: dict of metrics and groups with keys [metrics, groups]
-        """
-        return {'metrics': self._metrics, 'groups': self._metrics_groups}
-
-
 class AbstractStage(metaclass=ABCMeta):
     """
     Stage of training process. For example there may be 2 stages: train and validation.
@@ -290,14 +228,6 @@ class AbstractStage(metaclass=ABCMeta):
         :return: name
         """
         return self._name
-
-    def metrics_processor(self) -> MetricsProcessor or None:
-        """
-        Get metrics processor
-
-        :return: :class:'MetricsProcessor` object or None
-        """
-        return None
 
     @abstractmethod
     def _run(self, data_processor: DataProcessor) -> None:
@@ -372,9 +302,10 @@ class StandardStage(AbstractStage):
                 t.set_postfix({'loss': '[{:4f}]'.format(np.mean(self._losses))})
 
         self._epoch_end_event()
+        self._losses = None
 
     def _process_batch(self, batch, data_processor: TrainDataProcessor):
-        cur_loss = data_processor.process_batch(batch, metrics_processor=self.metrics_processor(), is_train=self._is_train)
+        cur_loss = data_processor.process_batch(batch, is_train=self._is_train)
         if self._losses is None:
             self._losses = cur_loss
         else:
@@ -398,7 +329,6 @@ class TrainStage(StandardStage):
     After stop iteration ValidationStage accumulate losses from :class:`DataProcessor`.
 
     :param data_producer: :class:`DataProducer` object
-    :param metrics_processor: :class:`MetricsProcessor`
     :param name: name of stage. By default 'train'
     """
 
@@ -412,8 +342,8 @@ class TrainStage(StandardStage):
             idxs = np.argpartition(losses, -num_losses)[-num_losses:]
             self._run_internal(self.data_producer.get_loader([indices[i] for i in idxs]), self.name(), data_processor)
 
-    def __init__(self, data_producer: DataProducer, metrics_processor: MetricsProcessor = None, name: str = 'train'):
-        super().__init__(name, True, data_producer, metrics_processor)
+    def __init__(self, data_producer: DataProducer, name: str = 'train'):
+        super().__init__(name, True, data_producer)
         self.hnm = None
         self.hn_indices = []
         self._dp_pass_indices_earlier = False
@@ -484,12 +414,11 @@ class ValidationStage(StandardStage):
     After stop iteration ValidationStage accumulate losses from :class:`DataProcessor`.
 
     :param data_producer: :class:`DataProducer` object
-    :param metrics_processor: :class:`MetricsProcessor`
     :param name: name of stage. By default 'validation'
     """
 
-    def __init__(self, data_producer: DataProducer, metrics_processor: MetricsProcessor = None, name: str = 'validation'):
-        super().__init__(name, False, data_producer, metrics_processor)
+    def __init__(self, data_producer: DataProducer, name: str = 'validation'):
+        super().__init__(name, False, data_producer)
 
 
 class TrainConfig:
@@ -533,3 +462,72 @@ class TrainConfig:
 
     def model(self) -> Module:
         return self._model
+
+
+class MetricsProcessor:
+    """
+    Collection for all :class:`AbstractMetric`'s and :class:`MetricsGroup`'s
+    """
+
+    def __init__(self):
+        self._metrics = []
+        self._metrics_groups = []
+
+    def subscribe_to_stage(self, stage: AbstractStage) -> 'MetricsProcessor':
+        events_container.event(stage, 'EPOCH_END').add_callback(lambda s: self.reset_metrics())
+        return self
+
+    def subscribe_to_trainer(self, trainer: Trainer) -> 'MetricsProcessor':
+        events_container.event(trainer, 'EPOCH_END').add_callback(lambda s: self.reset_metrics())
+        return self
+
+    def add_metric(self, metric: AbstractMetric) -> AbstractMetric:
+        """
+        Add :class:`AbstractMetric` object
+
+        :param metric: metric to add
+        :return: metric object
+        :rtype: :class:`AbstractMetric`
+        """
+        self._metrics.append(metric)
+        return metric
+
+    def add_metrics_group(self, group: MetricsGroup) -> MetricsGroup:
+        """
+        Add :class:`MetricsGroup` object
+
+        :param group: metrics group to add
+        :return: metrics group object
+        :rtype: :class:`MetricsGroup`
+        """
+        self._metrics_groups.append(group)
+        return group
+
+    def calc_metrics(self, output, target) -> None:
+        """
+        Recursive calculate all metrics
+
+        :param output: predict value
+        :param target: target value
+        """
+        for metric in self._metrics:
+            metric.calc(output, target)
+        for group in self._metrics_groups:
+            group.calc(output, target)
+
+    def reset_metrics(self) -> None:
+        """
+        Recursive reset all metrics values
+        """
+        for metric in self._metrics:
+            metric.reset()
+        for group in self._metrics_groups:
+            group.reset()
+
+    def get_metrics(self) -> {}:
+        """
+        Get metrics and groups as dict
+
+        :return: dict of metrics and groups with keys [metrics, groups]
+        """
+        return {'metrics': self._metrics, 'groups': self._metrics_groups}

@@ -130,11 +130,10 @@ class Trainer(MessageReceiver):
         MessageReceiver.__init__(self)
 
         self._fsm = fsm
-        self.monitor_hub = MonitorHub()
 
         self._checkpoint_manager = CheckpointsManager(self._fsm)
 
-        self.__epoch_num = 100
+        self.__epoch_num, self._cur_epoch_id = 100, 0
         self._resume_from = None
         self._best_state_rule = None
 
@@ -181,6 +180,12 @@ class Trainer(MessageReceiver):
         self._lr = DecayingLR(self._data_processor.get_lr(), coeff, patience, target_val_clbk)
         return self
 
+    def cur_epoch_id(self) -> int:
+        """
+        Get current epoch index
+        """
+        return self._cur_epoch_id
+
     def train(self) -> None:
         """
         Run training process
@@ -199,28 +204,28 @@ class Trainer(MessageReceiver):
 
         self._connect_stages_to_events()
 
-        with self.monitor_hub:
-            for epoch_idx in range(start_epoch_idx, self.__epoch_num + start_epoch_idx):
-                if True in self.message('NEED_STOP').read():
-                    break
+        for epoch_idx in range(start_epoch_idx, self.__epoch_num + start_epoch_idx):
+            if True in self.message('NEED_STOP').read():
+                break
 
-                self._epoch_start_event()
+            self._cur_epoch_id = epoch_idx
 
-                self.monitor_hub.set_epoch_num(epoch_idx)
-                for stage in self._train_config.stages():
-                    stage.run(self._data_processor)
+            self._epoch_start_event()
 
-                    if stage.metrics_processor() is not None:
-                        self.monitor_hub.update_metrics(stage.metrics_processor().get_metrics())
+            for stage in self._train_config.stages():
+                stage.run(self._data_processor)
 
-                new_best_state = self._save_state(self._checkpoint_manager, best_checkpoints_manager, cur_best_state, epoch_idx)
-                if new_best_state is not None:
-                    cur_best_state = new_best_state
+                if stage.metrics_processor() is not None:
+                    self.monitor_hub.update_metrics(stage.metrics_processor().get_metrics())
 
-                self._data_processor.update_lr(self._lr.value())
-                self._update_losses()
+            new_best_state = self._save_state(self._checkpoint_manager, best_checkpoints_manager, cur_best_state, epoch_idx)
+            if new_best_state is not None:
+                cur_best_state = new_best_state
 
-                self._epoch_end_event()
+            self._data_processor.update_lr(self._lr.value())
+            self._update_losses()
+
+            self._epoch_end_event()
 
     def _resume(self) -> int:
         if self._resume_from == 'last':

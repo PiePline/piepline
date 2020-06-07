@@ -134,13 +134,12 @@ class TrainDataProcessor(DataProcessor):
 
         return output
 
-    def process_batch(self, batch: {}, is_train: bool, metrics_processor: 'AbstractMetricsProcessor' = None) -> np.ndarray:
+    def process_batch(self, batch: {}, is_train: bool) -> np.ndarray:
         """
         Process one batch of data
 
         :param batch: dict, contains 'data' and 'target' keys. The values for key must be instance of torch.Tensor or dict
         :param is_train: is batch process for train
-        :param metrics_processor: metrics processor for collect metrics after batch is processed
         :return: array of losses with shape (N, ...) where N is batch size
         """
         internal_batch = self._data_preprocess(batch)
