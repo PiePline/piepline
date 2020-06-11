@@ -7,7 +7,7 @@ from torch.nn import Module
 import numpy as np
 from torch.utils.data import DataLoader
 
-from piepline import events_container, Trainer
+from piepline import events_container, Trainer, MetricsProcessor, MonitorHub
 
 from piepline.utils.events_system import Event
 
@@ -318,6 +318,11 @@ class StandardStage(AbstractStage):
         :return: array of losses
         """
         return self._losses
+
+    def connect2monitor_hub(self, monitor_hub: MonitorHub, metrics_processor: MetricsProcessor) -> 'StandardStage':
+        events_container.event(self, 'EPOCH_END').add_callback(lambda stage: monitor_hub.update_metrics())
+        events_container.event(self, 'EPOCH_END').add_callback(lambda stage: metrics_processor.reset_metrics())
+        return self
 
 
 class TrainStage(StandardStage):

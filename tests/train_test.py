@@ -172,7 +172,7 @@ class TrainTest(UseFileStructure):
         metrics_processor = MetricsProcessor().subscribe_to_stage(stage)
         metrics_processor.add_metric(DummyMetric())
 
-        with MonitorHub(trainer, metrics_processor):
+        with MonitorHub(trainer) as mh:
             def on_epoch_start(local_trainer: Trainer):
                 self.assertIs(local_trainer, trainer)
 
@@ -183,6 +183,8 @@ class TrainTest(UseFileStructure):
 
             def on_best_state_achieved(local_trainer: Trainer):
                 self.assertIs(local_trainer, trainer)
+
+            mh.subscribe2stage(stage, metrics_processor)
 
             events_container.event(trainer, 'EPOCH_START').add_callback(on_epoch_start)
             events_container.event(trainer, 'EPOCH_END').add_callback(on_epoch_end)
