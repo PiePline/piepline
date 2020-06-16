@@ -20,7 +20,8 @@ class SimpleMetric(AbstractMetric):
     def __init__(self):
         super().__init__('SimpleMetric')
 
-    def calc(self, output: Tensor, target: Tensor) -> np.ndarray or float:
+    @staticmethod
+    def calc(output: Tensor, target: Tensor) -> np.ndarray or float:
         return F.pairwise_distance(output, target, p=2).numpy()
 
 

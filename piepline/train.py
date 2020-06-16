@@ -4,12 +4,12 @@ The main module for training process
 import json
 import torch
 
+import piepline
 from piepline import events_container
+from piepline.train_config.train_config import TrainConfig
 
 from piepline.data_processor import TrainDataProcessor
 from piepline.utils import FileStructManager, CheckpointsManager
-from piepline.train_config.train_config import TrainConfig
-from piepline.monitoring import MonitorHub
 from piepline.utils.events_system import Event
 
 __all__ = ['Trainer']
@@ -321,7 +321,7 @@ class Trainer(MessageReceiver):
         self._best_state_rule = None
         return self
 
-    def train_config(self) -> TrainConfig:
+    def train_config(self) -> piepline.TrainConfig:
         """
         Get train config
 

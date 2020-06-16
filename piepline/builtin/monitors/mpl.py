@@ -98,6 +98,7 @@ class MPLMonitor(AbstractMonitor):
         :return: self object
         """
         self._realtime = is_realtime
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         plt.show()

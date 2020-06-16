@@ -39,23 +39,23 @@ class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
         self.__txt_log_file = None
 
         fsm.register_dir(self)
-        dir = fsm.get_path(self)
-        if dir is None:
+        directory = fsm.get_path(self)
+        if directory is None:
             return
 
-        dir = os.path.join(dir, network_name) if network_name is not None else dir
+        directory = os.path.join(directory, network_name) if network_name is not None else directory
 
-        if not (fsm.in_continue_mode() or is_continue) and os.path.exists(dir) and os.path.isdir(dir):
+        if not (fsm.in_continue_mode() or is_continue) and os.path.exists(directory) and os.path.isdir(directory):
             idx = 0
-            tmp_dir = dir + "_v{}".format(idx)
+            tmp_dir = directory + "_v{}".format(idx)
             while os.path.exists(tmp_dir) and os.path.isdir(tmp_dir):
                 idx += 1
-                tmp_dir = dir + "_v{}".format(idx)
-            dir = tmp_dir
+                tmp_dir = directory + "_v{}".format(idx)
+            directory = tmp_dir
 
-        os.makedirs(dir, exist_ok=True)
-        self.__writer = SummaryWriter(dir)
-        self.__txt_log_file = open(os.path.join(dir, "log.txt"), 'a' if is_continue else 'w')
+        os.makedirs(directory, exist_ok=True)
+        self.__writer = SummaryWriter(directory)
+        self.__txt_log_file = open(os.path.join(directory, "log.txt"), 'a' if is_continue else 'w')
 
     def update_metrics(self, metrics: {}) -> None:
         """
@@ -92,7 +92,7 @@ class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
             def add_histogram(name: str, vals, step_num, bins):
                 try:
                     self.__writer.add_histogram(name, vals, step_num, bins)
-                except:
+                except Exception:
                     pass
 
             tag = lambda name: name if parent_tag is None else '{}/{}'.format(parent_tag, name)

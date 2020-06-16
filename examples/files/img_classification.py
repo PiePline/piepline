@@ -1,5 +1,5 @@
-from neural_pipeline.builtin.monitors.tensorboard import TensorboardMonitor
-from neural_pipeline import DataProducer, AbstractDataset, TrainConfig, TrainStage,\
+from piepline.builtin.monitors.tensorboard import TensorboardMonitor
+from piepline import DataProducer, AbstractDataset, TrainConfig, TrainStage,\
     ValidationStage, Trainer, FileStructManager
 
 import torch

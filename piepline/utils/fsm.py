@@ -297,10 +297,10 @@ class FileStructManager:
         :return: path to directory
         :raise FSMException: if directory exists and ``check == True``
         """
-        dir = self._dirs[obj._get_name()]
+        directory = self._dirs[obj._get_name()]
         if not self._exist_ok and not self._is_continue and check:
-            dir.check_path()
-        return dir.get_path(create_if_non_exists)
+            directory.check_path()
+        return directory.get_path(create_if_non_exists)
 
     def in_continue_mode(self) -> bool:
         """

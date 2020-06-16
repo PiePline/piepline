@@ -7,7 +7,7 @@ import numpy as np
 
 from piepline.data_processor import DataProcessor, TrainDataProcessor, Model
 from piepline.utils import FileStructManager, dict_pair_recursive_bypass, CheckpointsManager
-from piepline.train_config import TrainConfig
+from piepline.train_config.train_config import TrainConfig
 from tests.common import UseFileStructure, data_remove
 
 __all__ = ['ModelTest', 'DataProcessorTest', 'TrainDataProcessorTest']
@@ -175,7 +175,7 @@ class DataProcessorTest(UseFileStructure):
 class SimpleLoss(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.module = torch.nn.Parameter(torch.Tensor([1]), requires_grad=True)
+        self.module = torch.nn.Parameter(torch.tensor([1]), requires_grad=True)
         self.res = None
 
     def forward(self, predict, target):
