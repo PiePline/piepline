@@ -18,7 +18,7 @@ import numpy as np
 import piepline
 
 from piepline import events_container
-from piepline.train_config.train_config import AbstractStage
+# from piepline.train_config.stages import AbstractStage
 
 from piepline.train_config.metrics import MetricsGroup
 from piepline.utils import dict_recursive_bypass
@@ -231,12 +231,12 @@ class MonitorHub:
     """
     Aggregator of monitors. This class collect monitors and provide unified interface to it's
     """
-    def __init__(self, trainer: piepline.Trainer):
+    def __init__(self, trainer: piepline.train.Trainer):
         self.monitors = []
 
         events_container.event(trainer, 'EPOCH_START_EVENT').add_callback(lambda t: self.set_epoch_num(t.cur_epoch_id()))
 
-    def subscribe2stage(self, stage: AbstractStage, metrics_processor) -> 'MonitorHub':
+    def subscribe2stage(self, stage, metrics_processor) -> 'MonitorHub':
         events_container.event(stage, 'EPOCH_START_EVENT').add_callback(lambda t: self.set_epoch_num(t.cur_epoch_id()))
 
         return self

@@ -5,9 +5,11 @@ import torch
 from torch.nn import functional as F
 from torch import Tensor
 
-from piepline import Trainer
+from piepline.train import Trainer
 from piepline.data_producer import DataProducer
-from piepline.train_config.train_config import MetricsGroup, AbstractMetric, TrainStage, MetricsProcessor, TrainConfig
+from piepline.train_config.metrics import MetricsGroup, AbstractMetric, MetricsProcessor
+from piepline.train_config.stages import TrainStage
+from piepline.train_config.train_config import TrainConfig
 from piepline.utils.fsm import FileStructManager
 from tests.common import UseFileStructure
 from tests.data_processor_test import SimpleModel, SimpleLoss

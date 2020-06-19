@@ -1,9 +1,11 @@
 import torch
 
-from piepline.train_config import MetricsProcessor, TrainStage
-from piepline.train_config.train_config import ValidationStage, TrainConfig
+from piepline.train_config import MetricsProcessor
+from piepline.train_config.stages import TrainStage, ValidationStage
+from piepline.train_config.train_config import TrainConfig
 from piepline.utils.fsm import FileStructManager
-from piepline import Predictor, Trainer
+from piepline.train import Trainer
+from piepline.predict import Predictor
 from tests.common import UseFileStructure
 
 from tests.data_processor_test import SimpleModel, SimpleLoss

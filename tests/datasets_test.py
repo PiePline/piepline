@@ -1,6 +1,6 @@
 import unittest
 
-from piepline import BasicDataset
+from piepline.data_producer.datasets import BasicDataset
 
 
 class TestingBasicDataset(BasicDataset):

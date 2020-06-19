@@ -2,11 +2,13 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 import piepline
 
-from piepline.train_config.stages import AbstractStage
+# from piepline.train_config.stages import AbstractStage
 from piepline import events_container
 from torch import Tensor
 
 __all__ = ['AbstractMetric', 'MetricsGroup', 'MetricsProcessor']
+
+# from train import Trainer
 
 
 class AbstractMetric(metaclass=ABCMeta):
@@ -197,11 +199,11 @@ class MetricsProcessor:
         self._metrics = []
         self._metrics_groups = []
 
-    def subscribe_to_stage(self, stage: AbstractStage) -> 'MetricsProcessor':
+    def subscribe_to_stage(self, stage) -> 'MetricsProcessor':
         events_container.event(stage, 'EPOCH_END').add_callback(lambda s: self.reset_metrics())
         return self
 
-    def subscribe_to_trainer(self, trainer: piepline.Trainer) -> 'MetricsProcessor':
+    def subscribe_to_trainer(self, trainer) -> 'MetricsProcessor':
         events_container.event(trainer, 'EPOCH_END').add_callback(lambda s: self.reset_metrics())
         return self
 

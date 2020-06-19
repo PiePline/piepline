@@ -321,7 +321,7 @@ class Trainer(MessageReceiver):
         self._best_state_rule = None
         return self
 
-    def train_config(self) -> piepline.TrainConfig:
+    def train_config(self) -> piepline.train_config.TrainConfig:
         """
         Get train config
 
