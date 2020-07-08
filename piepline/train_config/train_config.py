@@ -17,10 +17,10 @@ except ImportError:
     from tqdm import tqdm
 
 
-__all__ = ['TrainConfig']
+__all__ = ['BaseTrainConfig']
 
 
-class TrainConfig:
+class BaseTrainConfig:
     """
     Train process setting storage
 

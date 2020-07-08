@@ -6,7 +6,7 @@ import torch
 
 import piepline
 from piepline import events_container
-from piepline.train_config.train_config import TrainConfig
+from piepline.train_config.train_config import BaseTrainConfig
 
 from piepline.data_processor import TrainDataProcessor
 from piepline.utils import FileStructManager, CheckpointsManager
@@ -126,7 +126,7 @@ class Trainer(MessageReceiver):
         def __str__(self):
             return self._msg
 
-    def __init__(self, train_config: TrainConfig, fsm: FileStructManager, device: torch.device = None):
+    def __init__(self, train_config: BaseTrainConfig, fsm: FileStructManager, device: torch.device = None):
         MessageReceiver.__init__(self)
 
         self._fsm = fsm
@@ -321,7 +321,7 @@ class Trainer(MessageReceiver):
         self._best_state_rule = None
         return self
 
-    def train_config(self) -> piepline.TrainConfig:
+    def train_config(self) -> BaseTrainConfig:
         """
         Get train config
 

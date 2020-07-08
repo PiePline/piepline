@@ -5,10 +5,14 @@ import torch
 from torch.nn import functional as F
 from torch import Tensor
 
-from piepline import Trainer
+from piepline.train import Trainer
 from piepline.data_producer import DataProducer
-from piepline.train_config.train_config import MetricsGroup, AbstractMetric, TrainStage, MetricsProcessor, TrainConfig
+from piepline.train_config.metrics import MetricsGroup, AbstractMetric
+from piepline.train_config.train_config import BaseTrainConfig
+from piepline.train_config.stages import TrainStage
 from piepline.utils.fsm import FileStructManager
+from piepline.train_config.metrics_processor import MetricsProcessor
+
 from tests.common import UseFileStructure
 from tests.data_processor_test import SimpleModel, SimpleLoss
 from tests.data_producer_test import TestDataProducer
@@ -159,7 +163,7 @@ class TrainConfigTest(UseFileStructure):
 
         fsm = FileStructManager(base_dir=self.base_dir, is_continue=False)
         model = SimpleModel()
-        Trainer(TrainConfig(model, [train_stage], SimpleLoss(), torch.optim.SGD(model.parameters(), lr=1)), fsm) \
+        Trainer(BaseTrainConfig(model, [train_stage], SimpleLoss(), torch.optim.SGD(model.parameters(), lr=1)), fsm) \
             .set_epoch_num(1).train()
 
         self.assertEqual(metrics_processor.call_num, len(data_producer))

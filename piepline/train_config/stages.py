@@ -3,14 +3,12 @@ from abc import ABCMeta, abstractmethod
 from torch.utils.data.dataloader import DataLoader
 import numpy as np
 
-from piepline.monitoring import MonitorHub
 from piepline.data_producer.data_producer import DataProducer
 from piepline.data_processor import DataProcessor, TrainDataProcessor
-from piepline.train_config.metrics import MetricsProcessor
 from piepline import events_container
 from piepline.utils.events_system import Event
 
-__all__ = ['AbstractStage']
+__all__ = ['AbstractStage', 'TrainStage']
 
 
 class AbstractStage(metaclass=ABCMeta):
@@ -122,12 +120,6 @@ class StandardStage(AbstractStage):
         :return: array of losses
         """
         return self._losses
-
-    def connect2monitor_hub(self, monitor_hub: MonitorHub, metrics_processor: MetricsProcessor) -> 'StandardStage':
-        events_container.event(self, 'EPOCH_END').add_callback(
-            lambda stage: monitor_hub.update_metrics(metrics_processor.get_metrics()))
-        events_container.event(self, 'EPOCH_END').add_callback(lambda stage: metrics_processor.reset_metrics())
-        return self
 
 
 class TrainStage(StandardStage):

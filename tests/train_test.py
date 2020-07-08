@@ -5,10 +5,14 @@ import torch
 import numpy as np
 from torch import Tensor
 
-from piepline import Trainer, events_container, AbstractMetric, MonitorHub
+from piepline.train import Trainer
+from piepline import events_container
+from piepline.train_config.metrics import AbstractMetric
+from piepline.monitoring.hub import MonitorHub
 from piepline.train import DecayingLR
-from piepline.train_config import TrainConfig, TrainStage, MetricsProcessor
-from piepline.train_config.train_config import ValidationStage
+from piepline.train_config.train_config import BaseTrainConfig
+from piepline.train_config.stages import TrainStage, ValidationStage
+from piepline.train_config.metrics_processor import MetricsProcessor
 from piepline.utils.fsm import FileStructManager
 from tests.common import UseFileStructure
 from tests.data_processor_test import SimpleModel
