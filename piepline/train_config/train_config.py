@@ -5,17 +5,6 @@ from torch.nn import Module
 
 from piepline.train_config.stages import AbstractStage
 
-try:
-    from IPython import get_ipython
-
-    ip = get_ipython()
-    if ip is not None:
-        from tqdm import tqdm_notebook as tqdm
-    else:
-        from tqdm import tqdm
-except ImportError:
-    from tqdm import tqdm
-
 
 __all__ = ['BaseTrainConfig']
 

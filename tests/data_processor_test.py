@@ -176,7 +176,7 @@ class DataProcessorTest(UseFileStructure):
 class SimpleLoss(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.module = torch.nn.Parameter(torch.tensor([1]), requires_grad=True)
+        self.module = torch.tensor([1.], requires_grad=True)
         self.res = None
 
     def forward(self, predict, target):

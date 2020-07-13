@@ -5,6 +5,8 @@ from piepline.train import Trainer
 
 __all__ = ['MetricsProcessor']
 
+from utils.events_system import Event
+
 
 class MetricsProcessor:
     """
@@ -14,6 +16,8 @@ class MetricsProcessor:
     def __init__(self):
         self._metrics = []
         self._metrics_groups = []
+
+        self._reset_metrics_event = events_container.add_event('BEFORE_METRICS_RESET', Event(self))
 
     def subscribe_to_stage(self, stage: AbstractStage) -> 'MetricsProcessor':
         events_container.event(stage, 'EPOCH_END').add_callback(lambda s: self.reset_metrics())
@@ -61,6 +65,8 @@ class MetricsProcessor:
         """
         Recursive reset all metrics values
         """
+        self._reset_metrics_event()
+
         for metric in self._metrics:
             metric.reset()
         for group in self._metrics_groups:

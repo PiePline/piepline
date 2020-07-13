@@ -4,6 +4,8 @@ from piepline.train import Trainer
 
 __all__ = ['MonitorHub']
 
+from piepline.train_config.metrics_processor import MetricsProcessor
+
 
 class MonitorHub:
     """
@@ -12,17 +14,10 @@ class MonitorHub:
 
     def __init__(self, trainer: Trainer):
         self.monitors = []
+        events_container.event(trainer, 'EPOCH_START').add_callback(lambda t: self.set_epoch_num(t.cur_epoch_id()))
 
-        events_container.event(trainer, 'EPOCH_START_EVENT').add_callback(lambda t: self.set_epoch_num(t.cur_epoch_id()))
-
-    def subscribe2stage(self, stage, metrics_processor) -> 'MonitorHub':
-        events_container.event(stage, 'EPOCH_START_EVENT').add_callback(lambda t: self.set_epoch_num(t.cur_epoch_id()))
-
-        # code from stages `connect2monitor_hub`
-        # events_container.event(self, 'EPOCH_END').add_callback(
-        #     lambda stage: monitor_hub.update_metrics(metrics_processor.get_metrics()))
-        # events_container.event(self, 'EPOCH_END').add_callback(lambda stage: metrics_processor.reset_metrics())
-
+    def subscribe2metrics_processor(self, metrics_processor: MetricsProcessor) -> 'MonitorHub':
+        events_container.event(metrics_processor, "BEFORE_METRICS_RESET").add_callback(lambda mp: self.update_metrics(mp.get_metrics()))
         return self
 
     def set_epoch_num(self, epoch_num: int) -> None:

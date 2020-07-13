@@ -154,9 +154,10 @@ class TrainDataProcessor(DataProcessor):
             loss.backward()
             self.__optimizer.step()
 
-        with torch.no_grad():
-            if metrics_processor is not None:
-                metrics_processor.calc_metrics(res, self._pick_target(internal_batch))
+        # TODO: check if needed
+        # with torch.no_grad():
+        #     if metrics_processor is not None:
+        #         metrics_processor.calc_metrics(res, self._pick_target(internal_batch))
 
         return loss.data.cpu().numpy()
 

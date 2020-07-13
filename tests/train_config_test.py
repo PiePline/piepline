@@ -159,7 +159,7 @@ class TrainConfigTest(UseFileStructure):
     def test_train_stage(self):
         data_producer = DataProducer([{'data': torch.rand(1, 3), 'target': torch.rand(1)} for _ in list(range(20))])
         metrics_processor = FakeMetricsProcessor()
-        train_stage = TrainStage(data_producer, metrics_processor).enable_hard_negative_mining(0.1)
+        train_stage = TrainStage(data_producer).enable_hard_negative_mining(0.1)
 
         fsm = FileStructManager(base_dir=self.base_dir, is_continue=False)
         model = SimpleModel()

@@ -4,17 +4,15 @@ The main module for training process
 import json
 import torch
 
-import piepline
 from piepline import events_container
 from piepline.train_config.train_config import BaseTrainConfig
-
 from piepline.data_processor import TrainDataProcessor
-from piepline.utils import FileStructManager, CheckpointsManager
+from piepline.utils import FileStructManager
 from piepline.utils.events_system import Event
+from piepline.utils.messages_system import MessageReceiver
+from piepline.utils.checkpoints_manager import CheckpointsManager
 
 __all__ = ['Trainer']
-
-from piepline.utils.messages_system import MessageReceiver
 
 
 class LearningRate:
@@ -209,21 +207,21 @@ class Trainer(MessageReceiver):
                 break
 
             self._cur_epoch_id = epoch_idx
-
             self._epoch_start_event()
 
             for stage in self._train_config.stages():
                 stage.run(self._data_processor)
 
-                if stage.metrics_processor() is not None:
-                    self.monitor_hub.update_metrics(stage.metrics_processor().get_metrics())
+                # TODO: check if needed
+                # if stage.metrics_processor() is not None:
+                #     self.monitor_hub.update_metrics(stage.metrics_processor().get_metrics())
 
             new_best_state = self._save_state(self._checkpoint_manager, best_checkpoints_manager, cur_best_state, epoch_idx)
             if new_best_state is not None:
                 cur_best_state = new_best_state
 
             self._data_processor.update_lr(self._lr.value())
-            self._update_losses()
+            # self._update_losses() TODO check if needed
 
             self._epoch_end_event()
 
