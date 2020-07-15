@@ -20,13 +20,13 @@ from sklearn.model_selection import train_test_split
 from albumentations import Compose, HorizontalFlip, VerticalFlip, RandomRotate90, RandomGamma, \
     RandomBrightnessContrast, RGBShift, Resize, RandomCrop, OneOf
 
-from neural_pipeline import Trainer
-from neural_pipeline.builtin.models.albunet import resnet18
-from neural_pipeline.data_producer import AbstractDataset, DataProducer
-from neural_pipeline.monitoring import LogMonitor
-from neural_pipeline.train_config import AbstractMetric, MetricsProcessor, MetricsGroup, TrainStage, ValidationStage, TrainConfig
-from neural_pipeline.utils.fsm import FileStructManager
-from neural_pipeline.builtin.monitors.tensorboard import TensorboardMonitor
+from piepline import Trainer
+from piepline.builtin.models.albunet import resnet18
+from piepline.data_producer import AbstractDataset, DataProducer
+from piepline.monitoring import LogMonitor
+from piepline.train_config import AbstractMetric, MetricsProcessor, MetricsGroup, TrainStage, ValidationStage, TrainConfig
+from piepline.utils.fsm import FileStructManager
+from piepline.builtin.monitors.tensorboard import TensorboardMonitor
 
 ###################################
 # Define dataset and augmentations
@@ -119,7 +119,8 @@ class DiceMetric(AbstractMetric):
     def __init__(self):
         super().__init__('dice')
 
-    def calc(self, output: torch.Tensor, target: torch.Tensor) -> np.ndarray or float:
+    @staticmethod
+    def calc(output: torch.Tensor, target: torch.Tensor) -> np.ndarray or float:
         return dice(output, target)
 
 
@@ -127,7 +128,8 @@ class JaccardMetric(AbstractMetric):
     def __init__(self):
         super().__init__('jaccard')
 
-    def calc(self, output: torch.Tensor, target: torch.Tensor) -> np.ndarray or float:
+    @staticmethod
+    def calc(output: torch.Tensor, target: torch.Tensor) -> np.ndarray or float:
         return jaccard(output, target)
 
 

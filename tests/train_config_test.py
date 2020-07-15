@@ -5,10 +5,14 @@ import torch
 from torch.nn import functional as F
 from torch import Tensor
 
-from piepline import Trainer
+from piepline.train import Trainer
 from piepline.data_producer import DataProducer
-from piepline.train_config.train_config import MetricsGroup, AbstractMetric, TrainStage, MetricsProcessor, TrainConfig
+from piepline.train_config.metrics import MetricsGroup, AbstractMetric
+from piepline.train_config.train_config import BaseTrainConfig
+from piepline.train_config.stages import TrainStage
 from piepline.utils.fsm import FileStructManager
+from piepline.train_config.metrics_processor import MetricsProcessor
+
 from tests.common import UseFileStructure
 from tests.data_processor_test import SimpleModel, SimpleLoss
 from tests.data_producer_test import TestDataProducer
@@ -20,7 +24,8 @@ class SimpleMetric(AbstractMetric):
     def __init__(self):
         super().__init__('SimpleMetric')
 
-    def calc(self, output: Tensor, target: Tensor) -> np.ndarray or float:
+    @staticmethod
+    def calc(output: Tensor, target: Tensor) -> np.ndarray or float:
         return F.pairwise_distance(output, target, p=2).numpy()
 
 
@@ -154,11 +159,13 @@ class TrainConfigTest(UseFileStructure):
     def test_train_stage(self):
         data_producer = DataProducer([{'data': torch.rand(1, 3), 'target': torch.rand(1)} for _ in list(range(20))])
         metrics_processor = FakeMetricsProcessor()
-        train_stage = TrainStage(data_producer, metrics_processor).enable_hard_negative_mining(0.1)
+        train_stage = TrainStage(data_producer).enable_hard_negative_mining(0.1)
+
+        metrics_processor.subscribe_to_stage(train_stage)
 
         fsm = FileStructManager(base_dir=self.base_dir, is_continue=False)
         model = SimpleModel()
-        Trainer(TrainConfig(model, [train_stage], SimpleLoss(), torch.optim.SGD(model.parameters(), lr=1)), fsm) \
+        Trainer(BaseTrainConfig(model, [train_stage], SimpleLoss(), torch.optim.SGD(model.parameters(), lr=1)), fsm) \
             .set_epoch_num(1).train()
 
         self.assertEqual(metrics_processor.call_num, len(data_producer))

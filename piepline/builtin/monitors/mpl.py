@@ -14,8 +14,8 @@ except ImportError:
 
 import numpy as np
 
-from piepline import AbstractMonitor
-from piepline.train_config import MetricsGroup
+from piepline.monitoring.monotors import AbstractMonitor
+from piepline.train_config.metrics import MetricsGroup
 
 
 class MPLMonitor(AbstractMonitor):
@@ -98,6 +98,7 @@ class MPLMonitor(AbstractMonitor):
         :return: self object
         """
         self._realtime = is_realtime
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         plt.show()

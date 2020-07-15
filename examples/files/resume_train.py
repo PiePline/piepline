@@ -5,12 +5,12 @@ This file contain example for resume training described in img_segmentation.py
 import torch
 import numpy as np
 
-from neural_pipeline import Trainer
-from neural_pipeline.builtin.models.albunet import resnet18
-from neural_pipeline.builtin.monitors.tensorboard import TensorboardMonitor
-from neural_pipeline.monitoring import LogMonitor
-from neural_pipeline.train_config import TrainConfig
-from neural_pipeline.utils import FileStructManager
+from piepline import Trainer
+from piepline.builtin.models.albunet import resnet18
+from piepline.builtin.monitors.tensorboard import TensorboardMonitor
+from piepline.monitoring import LogMonitor
+from piepline.train_config import TrainConfig
+from piepline.utils import FileStructManager
 
 from examples.files.img_segmentation import train_stage, val_stage
 

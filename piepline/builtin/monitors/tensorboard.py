@@ -4,15 +4,18 @@ This module contains Tensorboard monitor interface
 
 import os
 import numpy as np
+from torch.nn import Module
 
 try:
     from tensorboardX import SummaryWriter
 except ImportError:
-    print("Looks like tensorboardX doesn't installed. Install in via 'pip install tensorboardX' and try again")
+    try:
+        from torch.utils.tensorboard import SummaryWriter
+    except ImportError:
+        print("Can't import tensorboard. Try to install tensorboardX or update PyTorch version")
 
-from piepline.monitoring import AbstractMonitor
-from piepline.data_processor import Model
-from piepline.train_config import AbstractMetric, MetricsGroup
+from piepline.monitoring.monotors import AbstractMonitor
+from piepline.train_config.metrics import AbstractMetric, MetricsGroup
 from piepline.utils.fsm import FileStructManager, FolderRegistrable
 
 import warnings
@@ -32,27 +35,27 @@ class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
 
     def __init__(self, fsm: FileStructManager, is_continue: bool, network_name: str = None):
         super().__init__()
-        self.__writer = None
-        self.__txt_log_file = None
+        self._writer = None
+        self._txt_log_file = None
 
         fsm.register_dir(self)
-        dir = fsm.get_path(self)
-        if dir is None:
+        directory = fsm.get_path(self)
+        if directory is None:
             return
 
-        dir = os.path.join(dir, network_name) if network_name is not None else dir
+        directory = os.path.join(directory, network_name) if network_name is not None else directory
 
-        if not (fsm.in_continue_mode() or is_continue) and os.path.exists(dir) and os.path.isdir(dir):
+        if not (fsm.in_continue_mode() or is_continue) and os.path.exists(directory) and os.path.isdir(directory):
             idx = 0
-            tmp_dir = dir + "_v{}".format(idx)
+            tmp_dir = directory + "_v{}".format(idx)
             while os.path.exists(tmp_dir) and os.path.isdir(tmp_dir):
                 idx += 1
-                tmp_dir = dir + "_v{}".format(idx)
-            dir = tmp_dir
+                tmp_dir = directory + "_v{}".format(idx)
+            directory = tmp_dir
 
-        os.makedirs(dir, exist_ok=True)
-        self.__writer = SummaryWriter(dir)
-        self.__txt_log_file = open(os.path.join(dir, "log.txt"), 'a' if is_continue else 'w')
+        os.makedirs(directory, exist_ok=True)
+        self._writer = SummaryWriter(directory)
+        self._txt_log_file = open(os.path.join(directory, "log.txt"), 'a' if is_continue else 'w')
 
     def update_metrics(self, metrics: {}) -> None:
         """
@@ -68,13 +71,13 @@ class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
 
         :param losses: losses values with keys 'train' and 'validation'
         """
-        if self.__writer is None:
+        if self._writer is None:
             return
 
         def on_loss(name: str, values: np.ndarray) -> None:
-            self.__writer.add_scalars('loss', {name: np.mean(values)}, global_step=self.epoch_num)
-            self.__writer.add_histogram('{}/loss_hist'.format(name), np.clip(values, -1, 1).astype(np.float32),
-                                        global_step=self.epoch_num, bins=np.linspace(-1, 1, num=11).astype(np.float32))
+            self._writer.add_scalars('loss', {name: np.mean(values)}, global_step=self.epoch_num)
+            self._writer.add_histogram('{}/loss_hist'.format(name), np.clip(values, -1, 1).astype(np.float32),
+                                       global_step=self.epoch_num, bins=np.linspace(-1, 1, num=11).astype(np.float32))
 
         self._iterate_by_losses(losses, on_loss)
 
@@ -88,8 +91,8 @@ class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
         def process_metric(cur_metric, parent_tag: str = None):
             def add_histogram(name: str, vals, step_num, bins):
                 try:
-                    self.__writer.add_histogram(name, vals, step_num, bins)
-                except:
+                    self._writer.add_histogram(name, vals, step_num, bins)
+                except Exception:
                     pass
 
             tag = lambda name: name if parent_tag is None else '{}/{}'.format(parent_tag, name)
@@ -97,19 +100,19 @@ class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
             if isinstance(cur_metric, MetricsGroup):
                 for m in cur_metric.metrics():
                     if m.get_values().size > 0:
-                        self.__writer.add_scalars(tag(m.name()), {m.name(): np.mean(m.get_values())}, global_step=self.epoch_num)
+                        self._writer.add_scalars(tag(m.name()), {m.name(): np.mean(m.get_values())}, global_step=self.epoch_num)
                         add_histogram(tag(m.name()) + '_hist',
                                       np.clip(m.get_values(), m.min_val(), m.max_val()).astype(np.float32),
                                       self.epoch_num, np.linspace(m.min_val(), m.max_val(), num=11).astype(np.float32))
             else:
                 values = cur_metric.get_values().astype(np.float32)
                 if values.size > 0:
-                    self.__writer.add_scalar(tag(cur_metric.name()), float(np.mean(values)), global_step=self.epoch_num)
+                    self._writer.add_scalar(tag(cur_metric.name()), float(np.mean(values)), global_step=self.epoch_num)
                     add_histogram(tag(cur_metric.name()) + '_hist',
                                   np.clip(values, cur_metric.min_val(), cur_metric.max_val()).astype(np.float32),
                                   self.epoch_num, np.linspace(cur_metric.min_val(), cur_metric.max_val(), num=11).astype(np.float32))
 
-        if self.__writer is None:
+        if self._writer is None:
             return
 
         for metric in metrics:
@@ -129,7 +132,7 @@ class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
         :param value: scalar value
         :param epoch_idx: epoch idx. If doesn't set - use last epoch idx stored in this class
         """
-        self.__writer.add_scalar(name, value, global_step=(epoch_idx if epoch_idx is not None else self.epoch_num))
+        self._writer.add_scalar(name, value, global_step=(epoch_idx if epoch_idx is not None else self.epoch_num))
 
     def write_to_txt_log(self, text: str, tag: str = None) -> None:
         """
@@ -138,29 +141,29 @@ class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
         :param text: text that will be writed
         :param tag: tag
         """
-        self.__writer.add_text("log" if tag is None else tag, text, self.epoch_num)
+        self._writer.add_text("log" if tag is None else tag, text, self.epoch_num)
         text = "Epoch [{}]".format(self.epoch_num) + ": " + text
-        self.__txt_log_file.write(text + '\n')
-        self.__txt_log_file.flush()
+        self._txt_log_file.write(text + '\n')
+        self._txt_log_file.flush()
 
-    def visualize_model(self, model: Model, tensor) -> None:
+    def visualize_model(self, model: Module, tensor) -> None:
         """
         Visualize model graph
 
         :param model: :class:`torch.nn.Module` object
         :param tensor: dummy input for trace model
         """
-        self.__writer.add_graph(model, tensor)
+        self._writer.add_graph(model, tensor)
 
     def close(self):
-        if self.__txt_log_file is not None:
-            self.__txt_log_file.close()
-            self.__txt_log_file = None
-            del self.__txt_log_file
-        if self.__writer is not None:
-            self.__writer.close()
-            self.__writer = None
-            del self.__writer
+        if self._txt_log_file is not None:
+            self._txt_log_file.close()
+            self._txt_log_file = None
+            del self._txt_log_file
+        if self._writer is not None:
+            self._writer.close()
+            self._writer = None
+            del self._writer
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()

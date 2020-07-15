@@ -1,12 +1,12 @@
-import numpy as np
+from typing import Tuple
 
 import torch
-from piepline.utils import dict_recursive_bypass
-
-from piepline.utils import CheckpointsManager
+from torch.optim.optimizer import Optimizer
 from torch.nn import Module
 
-from piepline.data_processor.model import Model
+from piepline.utils.utils import dict_recursive_bypass
+from piepline.train_config.train_config import BaseTrainConfig
+
 
 __all__ = ['DataProcessor', 'TrainDataProcessor']
 
@@ -22,20 +22,15 @@ class DataProcessor:
 
     def __init__(self, model: Module, device: torch.device = None):
         self._checkpoints_manager = None
-        self._model = Model(model)
+        self._model = model
         self._device = device
         self._pick_model_input = lambda data: data['data']
-
-    def set_checkpoints_manager(self, checkpoint_manager: CheckpointsManager) -> 'DataProcessor':
-        self._checkpoints_manager = checkpoint_manager
-        self._model.set_checkpoints_manager(checkpoint_manager)
-        return self
 
     def model(self) -> Module:
         """
         Get current module
         """
-        return self._model.model()
+        return self._model
 
     def set_pick_model_input(self, pick_model_input: callable) -> 'DataProcessor':
         """
@@ -78,18 +73,6 @@ class DataProcessor:
             output = self._model(self._pick_model_input(data))
         return output
 
-    def load(self) -> None:
-        """
-        Load model weights from checkpoint
-        """
-        self._model.load_weights()
-
-    def save_state(self) -> None:
-        """
-        Save state of optimizer and perform epochs number
-        """
-        self._model.save_weights()
-
 
 class TrainDataProcessor(DataProcessor):
     """
@@ -105,15 +88,18 @@ class TrainDataProcessor(DataProcessor):
         def __str__(self):
             return self._msg
 
-    def __init__(self, train_config: 'TrainConfig', device: torch.device = None):
+    def __init__(self, train_config: 'BaseTrainConfig', device: torch.device = None):
         super().__init__(train_config.model(), device)
 
         self._data_preprocess = (lambda data: data) if device is None else self._pass_data_to_device
         self._pick_target = lambda data: data['target']
 
         self._loss_input_preproc = lambda data: data
-        self.__criterion = train_config.loss()
-        self.__optimizer = train_config.optimizer()
+        self._criterion = train_config.loss()
+        self._optimizer = train_config.optimizer()
+
+    def optimizer(self) -> Optimizer:
+        return self._optimizer
 
     def predict(self, data, is_train=False) -> torch.Tensor or dict:
         """
@@ -134,32 +120,31 @@ class TrainDataProcessor(DataProcessor):
 
         return output
 
-    def process_batch(self, batch: {}, is_train: bool, metrics_processor: 'AbstractMetricsProcessor' = None) -> np.ndarray:
+    def process_batch(self, batch: {}, is_train: bool) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Process one batch of data
 
-        :param batch: dict, contains 'data' and 'target' keys. The values for key must be instance of torch.Tensor or dict
-        :param is_train: is batch process for train
-        :param metrics_processor: metrics processor for collect metrics after batch is processed
-        :return: array of losses with shape (N, ...) where N is batch size
+        Args:
+            batch (dict): contains 'data' and 'target' keys. The values for key must be instance of torch.Tensor or dict
+            is_train (bool): is batch process for train
+
+        Returns:
+            tuple of `class`:torch.Tensor of losses, predicts and targets with shape (N, ...) where N is batch size
         """
         internal_batch = self._data_preprocess(batch)
 
         if is_train:
-            self.__optimizer.zero_grad()
+            self._optimizer.zero_grad()
 
         res = self.predict(internal_batch, is_train)
-        loss = self.__criterion(res, self._pick_target(internal_batch))
+        target = self._pick_target(internal_batch)
+        loss = self._criterion(res, target)
 
         if is_train:
             loss.backward()
-            self.__optimizer.step()
+            self._optimizer.step()
 
-        with torch.no_grad():
-            if metrics_processor is not None:
-                metrics_processor.calc_metrics(res, self._pick_target(internal_batch))
-
-        return loss.data.cpu().numpy()
+        return loss, res, target
 
     def update_lr(self, lr: float) -> None:
         """
@@ -167,14 +152,14 @@ class TrainDataProcessor(DataProcessor):
 
         :param lr: target learning rate
         """
-        for param_group in self.__optimizer.param_groups:
+        for param_group in self._optimizer.param_groups:
             param_group['lr'] = lr
 
     def get_lr(self) -> float:
         """
         Get learning rate from optimizer
         """
-        for param_group in self.__optimizer.param_groups:
+        for param_group in self._optimizer.param_groups:
             return param_group['lr']
 
     def get_state(self) -> {}:
@@ -183,33 +168,7 @@ class TrainDataProcessor(DataProcessor):
 
         :return: dict with keys [weights, optimizer]
         """
-        return {'weights': self._model.model().state_dict(), 'optimizer': self.__optimizer.state_dict()}
-
-    def _get_checkpoints_manager(self) -> CheckpointsManager:
-        if self._checkpoints_manager is None:
-            raise self.TDPException("Checkpoints manager doesn't specified. Use 'set_checkpoints_manager()'")
-        return self._checkpoints_manager
-
-    def load(self) -> None:
-        """
-        Load state of model, optimizer and TrainDataProcessor from checkpoint
-        """
-        super().load()
-        cp_manager = self._get_checkpoints_manager()
-        print("Optimizer inited by file:", cp_manager.optimizer_state_file(), end='; ')
-        state = torch.load(cp_manager.optimizer_state_file())
-        print('state dict len before:', len(state), end='; ')
-        state = {k: v for k, v in state.items() if k in self.__optimizer.state_dict()}
-        print('state dict len after:', len(state), end='; ')
-        self.__optimizer.load_state_dict(state)
-        print('done')
-
-    def save_state(self) -> None:
-        """
-        Save state of optimizer and perform epochs number
-        """
-        super().save_state()
-        torch.save(self.__optimizer.state_dict(), self._get_checkpoints_manager().optimizer_state_file())
+        return {'weights': self._model.model().state_dict(), 'optimizer': self._optimizer.state_dict()}
 
     def set_pick_target(self, pick_target: callable) -> 'DataProcessor':
         """
@@ -281,3 +240,9 @@ class TrainDataProcessor(DataProcessor):
             return data.to(self._device)
         else:
             return data
+
+    def save_state(self, path: str) -> None:
+        """
+        Save state of optimizer and perform epochs number
+        """
+        torch.save(self.optimizer().state_dict(), path)
