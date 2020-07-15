@@ -14,13 +14,13 @@ from piepline.train_config.train_config import BaseTrainConfig
 from piepline.train_config.stages import TrainStage, ValidationStage
 from piepline.train_config.metrics_processor import MetricsProcessor
 from piepline.utils.fsm import FileStructManager
+from piepline.utils.checkpoints_manager import CheckpointsManager, BestStateDetector
+
 from tests.common import UseFileStructure
 from tests.data_processor_test import SimpleModel
 from tests.data_producer_test import TestDataProducer
 
 __all__ = ['TrainTest']
-
-from utils.checkpoints_manager import CheckpointsManager, BestStateDetector
 
 
 class SimpleLoss(torch.nn.Module):

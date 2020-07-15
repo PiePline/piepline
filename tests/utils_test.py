@@ -13,6 +13,7 @@ import unittest
 from piepline.utils.checkpoints_manager import CheckpointsManager
 from piepline.utils.utils import dict_recursive_bypass
 from piepline.utils.fsm import FileStructManager, FolderRegistrable
+
 from tests.common import UseFileStructure
 
 __all__ = ['UtilsTest', 'FileStructManagerTest', 'CheckpointsManagerTests']

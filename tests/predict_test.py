@@ -6,11 +6,11 @@ from piepline.train_config.train_config import BaseTrainConfig
 from piepline.utils.fsm import FileStructManager
 from piepline.predict import Predictor
 from piepline.train import Trainer
-from tests.common import UseFileStructure
+from piepline.utils.checkpoints_manager import CheckpointsManager
 
+from tests.common import UseFileStructure
 from tests.data_processor_test import SimpleModel, SimpleLoss
 from tests.data_producer_test import TestDataProducer
-from utils.checkpoints_manager import CheckpointsManager
 
 
 class PredictTest(UseFileStructure):

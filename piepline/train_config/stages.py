@@ -20,7 +20,7 @@ except ImportError:
     from tqdm import tqdm
 
 
-__all__ = ['AbstractStage', 'TrainStage']
+__all__ = ['AbstractStage', 'TrainStage', 'ValidationStage']
 
 
 class AbstractStage(metaclass=ABCMeta):

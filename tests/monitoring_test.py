@@ -8,6 +8,7 @@ import numpy as np
 from piepline.monitoring.monotors import LogMonitor
 from piepline.train_config.metrics import MetricsGroup
 from piepline.utils.fsm import FileStructManager
+
 from tests.common import UseFileStructure, SimpleMetric
 
 __all__ = ['MonitorLogTest']
