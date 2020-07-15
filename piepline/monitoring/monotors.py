@@ -5,7 +5,7 @@ import numpy as np
 
 from piepline.utils.fsm import FolderRegistrable, FileStructManager
 from piepline.train_config.metrics import MetricsGroup
-from utils import dict_recursive_bypass
+from piepline.utils.utils import dict_recursive_bypass
 
 __all__ = ['AbstractMonitor', 'ConsoleMonitor', 'LogMonitor']
 

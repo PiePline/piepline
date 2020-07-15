@@ -1,7 +1,7 @@
 from typing import List
 
-from torch.optim import Optimizer
 from torch.nn import Module
+from torch.optim.optimizer import Optimizer
 
 from piepline.train_config.stages import AbstractStage
 

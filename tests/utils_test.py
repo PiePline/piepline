@@ -10,8 +10,9 @@ from torch import Tensor
 import numpy as np
 import unittest
 
-from piepline.utils import FileStructManager, CheckpointsManager, dict_recursive_bypass
-from piepline.utils.fsm import FolderRegistrable
+from piepline.utils.checkpoints_manager import CheckpointsManager
+from piepline.utils.utils import dict_recursive_bypass
+from piepline.utils.fsm import FileStructManager, FolderRegistrable
 from tests.common import UseFileStructure
 
 __all__ = ['UtilsTest', 'FileStructManagerTest', 'CheckpointsManagerTests']
@@ -136,12 +137,12 @@ class CheckpointsManagerTests(UseFileStructure):
     def test_pack(self):
         fsm = FileStructManager(base_dir=self.base_dir, is_continue=False)
         cm = CheckpointsManager(fsm)
-        with self.assertRaises(CheckpointsManager.SMException):
+        with self.assertRaises(CheckpointsManager.CMException):
             cm.pack()
 
         os.mkdir(cm.weights_file())
         os.mkdir(cm.optimizer_state_file())
-        with self.assertRaises(CheckpointsManager.SMException):
+        with self.assertRaises(CheckpointsManager.CMException):
             cm.pack()
 
         shutil.rmtree(cm.weights_file())

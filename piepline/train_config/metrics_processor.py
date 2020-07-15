@@ -20,7 +20,8 @@ class MetricsProcessor:
         self._reset_metrics_event = events_container.add_event('BEFORE_METRICS_RESET', Event(self))
 
     def subscribe_to_stage(self, stage: AbstractStage) -> 'MetricsProcessor':
-        events_container.event(stage, 'EPOCH_END').add_callback(lambda s: self.reset_metrics())
+        events_container.event(stage, 'BATCH_PROCESSED').add_callback(lambda s: self.calc_metrics(**s.get_last_result()))
+        events_container.event(stage, 'STAGE_END').add_callback(lambda s: self.reset_metrics())
         return self
 
     def subscribe_to_trainer(self, trainer: Trainer) -> 'MetricsProcessor':

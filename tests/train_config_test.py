@@ -161,6 +161,8 @@ class TrainConfigTest(UseFileStructure):
         metrics_processor = FakeMetricsProcessor()
         train_stage = TrainStage(data_producer).enable_hard_negative_mining(0.1)
 
+        metrics_processor.subscribe_to_stage(train_stage)
+
         fsm = FileStructManager(base_dir=self.base_dir, is_continue=False)
         model = SimpleModel()
         Trainer(BaseTrainConfig(model, [train_stage], SimpleLoss(), torch.optim.SGD(model.parameters(), lr=1)), fsm) \

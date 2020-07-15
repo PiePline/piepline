@@ -1,10 +1,11 @@
 from abc import ABCMeta, abstractmethod
+from typing import Dict
 
 from torch.utils.data.dataloader import DataLoader
 import numpy as np
 
 from piepline.data_producer.data_producer import DataProducer
-from piepline.data_processor import DataProcessor, TrainDataProcessor
+# from piepline.data_processor.data_processor import DataProcessor, TrainDataProcessor
 from piepline import events_container
 from piepline.utils.events_system import Event
 
@@ -33,7 +34,7 @@ class AbstractStage(metaclass=ABCMeta):
 
     def __init__(self, name: str):
         self._name = name
-        self._stage_end_event = Event(self)
+        self._stage_end_event = events_container.add_event('STAGE_END', Event(self))
 
     def name(self) -> str:
         """
@@ -44,12 +45,12 @@ class AbstractStage(metaclass=ABCMeta):
         return self._name
 
     @abstractmethod
-    def _run(self, data_processor: DataProcessor) -> None:
+    def _run(self, data_processor: 'DataProcessor') -> None:
         """
         Internal method with stage run implementation. This method was called in :meth:`run`
         """
 
-    def run(self, data_processor: DataProcessor) -> None:
+    def run(self, data_processor: 'DataProcessor') -> None:
         """
         Run stage
 
@@ -58,6 +59,10 @@ class AbstractStage(metaclass=ABCMeta):
         """
         self._run(data_processor)
         self._stage_end_event()
+        self._after_epoch_end()
+
+    def _after_epoch_end(self):
+        pass
 
     def get_losses(self) -> np.ndarray or None:
         """
@@ -92,10 +97,13 @@ class StandardStage(AbstractStage):
         self._losses = None
         self._is_train = is_train
 
+        self._last_result = None
+
         self._epoch_end_event = events_container.add_event('EPOCH_END', Event(self))
         self._epoch_start_event = events_container.add_event('EPOCH_START', Event(self))
+        self._batch_processed = events_container.add_event('BATCH_PROCESSED', Event(self))
 
-    def _run(self, data_processor: TrainDataProcessor) -> None:
+    def _run(self, data_processor: 'TrainDataProcessor') -> None:
         """
         Run stage. This iterate by DataProducer and show progress in stdout
 
@@ -104,22 +112,27 @@ class StandardStage(AbstractStage):
         if self.data_loader is None:
             self.data_loader = self.data_producer.get_loader()
 
-        self._run_internal(self.data_loader, self.name(), data_processor)
+        self._run_internal(self.data_loader, name=self.name(), data_processor=data_processor)
+        self._epoch_end_event()
 
-    def _run_internal(self, data_loader: DataLoader, name: str, data_processor: TrainDataProcessor):
+    def _run_internal(self, data_loader: DataLoader, name: str, data_processor: 'TrainDataProcessor'):
         self._epoch_start_event()
 
         with tqdm(data_loader, desc=name, leave=False) as t:
             self._losses = None
             for batch in t:
                 self._process_batch(batch, data_processor)
+                self._batch_processed()
                 t.set_postfix({'loss': '[{:4f}]'.format(np.mean(self._losses))})
 
-        self._epoch_end_event()
+    def _after_epoch_end(self):
         self._losses = None
+        self._last_result = None
 
-    def _process_batch(self, batch, data_processor: TrainDataProcessor):
-        cur_loss = data_processor.process_batch(batch, is_train=self._is_train)
+    def _process_batch(self, batch, data_processor: 'TrainDataProcessor'):
+        cur_loss, cur_predict, cur_target = data_processor.process_batch(batch, is_train=self._is_train)
+        self._last_result = {'output': cur_predict, 'target': cur_target}
+        cur_loss = cur_loss.detach().cpu().numpy()
         if self._losses is None:
             self._losses = cur_loss
         else:
@@ -132,6 +145,9 @@ class StandardStage(AbstractStage):
         :return: array of losses
         """
         return self._losses
+
+    def get_last_result(self) -> Dict['output', 'target']:
+        return self._last_result
 
 
 class TrainStage(StandardStage):
@@ -151,10 +167,11 @@ class TrainStage(StandardStage):
             super().__init__(stage_name, True, data_producer)
             self._part = part
 
-        def exec(self, data_processor: TrainDataProcessor, losses: np.ndarray, indices: []) -> None:
+        def exec(self, data_processor: 'TrainDataProcessor', losses: np.ndarray, indices: []) -> None:
             num_losses = int(losses.size * self._part)
             idxs = np.argpartition(losses, -num_losses)[-num_losses:]
             self._run_internal(self.data_producer.get_loader([indices[i] for i in idxs]), self.name(), data_processor)
+            self._losses = None
 
     def __init__(self, data_producer: DataProducer, name: str = 'train'):
         super().__init__(name, True, data_producer)
@@ -188,18 +205,18 @@ class TrainStage(StandardStage):
             self.data_producer.pass_indices(False)
         return self
 
-    def run(self, data_processor: TrainDataProcessor) -> None:
+    def _run(self, data_processor: 'TrainDataProcessor') -> None:
         """
         Run stage
 
         :param data_processor: :class:`TrainDataProcessor` object
         """
-        super().run(data_processor)
+        super()._run(data_processor)
         if self.hnm is not None:
             self.hnm.exec(data_processor, self._losses, self.hn_indices)
             self.hn_indices = []
 
-    def _process_batch(self, batch, data_processor: TrainDataProcessor) -> None:
+    def _process_batch(self, batch, data_processor: 'TrainDataProcessor') -> None:
         """
         Internal method for process one bathc
 

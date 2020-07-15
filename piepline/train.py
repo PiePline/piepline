@@ -6,11 +6,10 @@ import torch
 
 from piepline import events_container
 from piepline.train_config.train_config import BaseTrainConfig
-from piepline.data_processor import TrainDataProcessor
-from piepline.utils import FileStructManager
+from piepline.data_processor.data_processor import TrainDataProcessor
+from piepline.utils.fsm import FileStructManager
 from piepline.utils.events_system import Event
 from piepline.utils.messages_system import MessageReceiver
-from piepline.utils.checkpoints_manager import CheckpointsManager
 
 __all__ = ['Trainer']
 
@@ -129,19 +128,15 @@ class Trainer(MessageReceiver):
 
         self._fsm = fsm
 
-        self._checkpoint_manager = CheckpointsManager(self._fsm)
-
         self.__epoch_num, self._cur_epoch_id = 100, 0
-        self._resume_from = None
-        self._best_state_rule = None
 
         self._train_config = train_config
-        self._data_processor = TrainDataProcessor(self._train_config, device).set_checkpoints_manager(self._checkpoint_manager)
+        self._data_processor = TrainDataProcessor(self._train_config, device)
         self._lr = LearningRate(self._data_processor.get_lr())
 
         self._epoch_end_event = events_container.add_event('EPOCH_END', Event(self))
         self._epoch_start_event = events_container.add_event('EPOCH_START', Event(self))
-        self._best_state_achieved_event = events_container.add_event('BEST_STATE_ACHIEVED', Event(self))
+        self._train_done_event = events_container.add_event('TRAIN_DONE', Event(self))
 
         self._add_message('NEED_STOP')
 
@@ -153,16 +148,6 @@ class Trainer(MessageReceiver):
         :return: self object
         """
         self.__epoch_num = epoch_number
-        return self
-
-    def resume(self, from_best_checkpoint: bool) -> 'Trainer':
-        """
-        Resume train from last checkpoint
-
-        :param from_best_checkpoint: is need to continue from best checkpoint
-        :return: self object
-        """
-        self._resume_from = 'last' if from_best_checkpoint is False else 'best'
         return self
 
     def enable_lr_decaying(self, coeff: float, patience: int, target_val_clbk: callable) -> 'Trainer':
@@ -184,6 +169,10 @@ class Trainer(MessageReceiver):
         """
         return self._cur_epoch_id
 
+    def set_cur_epoch(self, idx: int) -> 'Trainer':
+        self._cur_epoch_id = idx
+        return self
+
     def train(self) -> None:
         """
         Run training process
@@ -191,14 +180,7 @@ class Trainer(MessageReceiver):
         if len(self._train_config.stages()) < 1:
             raise self.TrainerException("There's no sages for training")
 
-        best_checkpoints_manager = None
-        cur_best_state = None
-        if self._best_state_rule is not None:
-            best_checkpoints_manager = CheckpointsManager(self._fsm, 'best')
-
-        start_epoch_idx = 1
-        if self._resume_from is not None:
-            start_epoch_idx += self._resume()
+        start_epoch_idx = self._cur_epoch_id
 
         self._connect_stages_to_events()
 
@@ -212,73 +194,10 @@ class Trainer(MessageReceiver):
             for stage in self._train_config.stages():
                 stage.run(self._data_processor)
 
-                # TODO: check if needed
-                # if stage.metrics_processor() is not None:
-                #     self.monitor_hub.update_metrics(stage.metrics_processor().get_metrics())
-
-            new_best_state = self._save_state(self._checkpoint_manager, best_checkpoints_manager, cur_best_state, epoch_idx)
-            if new_best_state is not None:
-                cur_best_state = new_best_state
-
             self._data_processor.update_lr(self._lr.value())
-            # self._update_losses() TODO check if needed
-
             self._epoch_end_event()
 
-    def _resume(self) -> int:
-        if self._resume_from == 'last':
-            ckpts_manager = self._checkpoint_manager
-        elif self._checkpoint_manager == 'best':
-            ckpts_manager = CheckpointsManager(self._fsm, 'best')
-        else:
-            raise NotImplementedError("Resume parameter may be only 'last' or 'best' not {}".format(self._resume_from))
-        ckpts_manager.unpack()
-        self._data_processor.load()
-
-        with open(ckpts_manager.trainer_file(), 'r') as file:
-            start_epoch_idx = json.load(file)['last_epoch'] + 1
-
-        ckpts_manager.pack()
-        return start_epoch_idx
-
-    def _save_state(self, ckpts_manager: CheckpointsManager, best_ckpts_manager: CheckpointsManager or None,
-                    cur_best_state: float or None, epoch_idx: int) -> float or None:
-        """
-        Internal method used for save states after epoch end
-
-        :param ckpts_manager: ordinal checkpoints manager
-        :param best_ckpts_manager: checkpoints manager, used for store best stages
-        :param cur_best_state: current best stage metric value
-        :return: new best stage metric value or None if it not update
-        """
-
-        def save_trainer(ckp_manager):
-            with open(ckp_manager.trainer_file(), 'w') as out:
-                json.dump({'last_epoch': epoch_idx}, out)
-
-        if self._best_state_rule is not None:
-            new_best_state = self._best_state_rule()
-            if cur_best_state is None:
-                self._data_processor.save_state()
-                save_trainer(ckpts_manager)
-                ckpts_manager.pack()
-                return new_best_state
-            else:
-                if new_best_state <= cur_best_state:
-                    self._data_processor.set_checkpoints_manager(best_ckpts_manager)
-                    self._data_processor.save_state()
-                    save_trainer(best_ckpts_manager)
-                    best_ckpts_manager.pack()
-                    self._data_processor.set_checkpoints_manager(ckpts_manager)
-
-                    self._best_state_achieved_event()
-
-                    return new_best_state
-
-        self._data_processor.save_state()
-        save_trainer(ckpts_manager)
-        ckpts_manager.pack()
-        return None
+        self._train_done_event()
 
     def _update_losses(self) -> None:
         """
@@ -297,27 +216,6 @@ class Trainer(MessageReceiver):
         :return: data processor
         """
         return self._data_processor
-
-    def enable_best_states_saving(self, rule: callable) -> 'Trainer':
-        """
-        Enable best states saving
-
-        Best stages will save when return of `rule` update minimum
-
-        :param rule: callback which returns the value that is used for define when need store best metric
-        :return: self object
-        """
-        self._best_state_rule = rule
-        return self
-
-    def disable_best_states_saving(self) -> 'Trainer':
-        """
-        Enable best states saving
-
-        :return: self object
-        """
-        self._best_state_rule = None
-        return self
 
     def train_config(self) -> BaseTrainConfig:
         """

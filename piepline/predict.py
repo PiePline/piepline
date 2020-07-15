@@ -3,12 +3,12 @@ The main module for run inference
 """
 from abc import ABCMeta
 
+from torch.nn import Module
 from tqdm import tqdm
 import torch
 
-from piepline.utils import CheckpointsManager
+from piepline.utils.checkpoints_manager import CheckpointsManager
 from piepline.data_producer.data_producer import DataProducer
-from piepline.data_processor import Model
 from piepline.utils.fsm import FileStructManager
 from piepline.data_processor.data_processor import DataProcessor
 
@@ -16,14 +16,12 @@ __all__ = ['Predictor', 'DataProducerPredictor']
 
 
 class BasePredictor(metaclass=ABCMeta):
-    def __init__(self, model: Model, fsm: FileStructManager, from_best_state: bool = False):
-        self._fsm = fsm
+    def __init__(self, model: Module, checkpoints_manager: CheckpointsManager):
         self._data_processor = DataProcessor(model)
-        checkpoint_manager = CheckpointsManager(self._fsm, prefix='best' if from_best_state else None)
-        self._data_processor.set_checkpoints_manager(checkpoint_manager)
-        checkpoint_manager.unpack()
-        self._data_processor.load()
-        checkpoint_manager.pack()
+
+        checkpoints_manager.unpack()
+        checkpoints_manager.load_model_weights(model)
+        checkpoints_manager.pack()
 
 
 class Predictor(BasePredictor):
@@ -34,8 +32,8 @@ class Predictor(BasePredictor):
     :param fsm: :class:`FileStructManager` object
     """
 
-    def __init__(self, model: Model, fsm: FileStructManager, from_best_state: bool = False):
-        super().__init__(model, fsm, from_best_state=from_best_state)
+    def __init__(self, model: Module, checkpoints_manager: CheckpointsManager):
+        super().__init__(model, checkpoints_manager)
 
     def predict(self, data: torch.Tensor or dict):
         """
@@ -49,8 +47,8 @@ class Predictor(BasePredictor):
 
 
 class DataProducerPredictor(BasePredictor):
-    def __init__(self, model: Model, fsm: FileStructManager, from_best_state: bool = False):
-        super().__init__(model, fsm, from_best_state=from_best_state)
+    def __init__(self, model: Module, fsm: FileStructManager, checkpoints_manager: CheckpointsManager):
+        super().__init__(model, fsm, checkpoints_manager)
 
     def predict(self, data_producer: DataProducer, callback: callable) -> None:
         """

@@ -9,8 +9,9 @@ class Event:
     def object(self):
         return self._object
 
-    def add_callback(self, clbk: callable):
+    def add_callback(self, clbk: callable) -> 'Event':
         self._callbacks.append(clbk)
+        return self
 
     def __call__(self):
         for clbk in self._callbacks:
