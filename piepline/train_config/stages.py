@@ -5,7 +5,6 @@ from torch.utils.data.dataloader import DataLoader
 import numpy as np
 
 from piepline.data_producer.data_producer import DataProducer
-# from piepline.data_processor.data_processor import DataProcessor, TrainDataProcessor
 from piepline import events_container
 from piepline.utils.events_system import Event
 

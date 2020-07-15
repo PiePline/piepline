@@ -1,6 +1,5 @@
 from typing import Tuple
 
-import numpy as np
 import torch
 from torch.optim.optimizer import Optimizer
 from torch.nn import Module

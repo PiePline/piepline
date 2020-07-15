@@ -1,10 +1,9 @@
 from piepline.monitoring.monotors import AbstractMonitor
 from piepline import events_container
 from piepline.train import Trainer
+from piepline.train_config.metrics_processor import MetricsProcessor
 
 __all__ = ['MonitorHub']
-
-from piepline.train_config.metrics_processor import MetricsProcessor
 
 
 class MonitorHub:

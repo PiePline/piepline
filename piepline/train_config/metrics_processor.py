@@ -2,10 +2,9 @@ from piepline import events_container
 from piepline.train_config.metrics import AbstractMetric, MetricsGroup
 from piepline.train_config.stages import AbstractStage
 from piepline.train import Trainer
+from piepline.utils.events_system import Event
 
 __all__ = ['MetricsProcessor']
-
-from utils.events_system import Event
 
 
 class MetricsProcessor:
