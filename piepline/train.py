@@ -1,7 +1,6 @@
 """
 The main module for training process
 """
-import json
 import torch
 
 from piepline import events_container

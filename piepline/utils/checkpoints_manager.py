@@ -8,11 +8,10 @@ from torch.nn import Module
 from piepline import events_container
 from piepline.utils.fsm import FolderRegistrable, FileStructManager
 from piepline.train import Trainer
+from piepline.train_config.stages import AbstractStage
+from piepline.utils.events_system import Event
 
-__all__ = ['CheckpointsManager']
-
-from train_config.stages import StandardStage, AbstractStage
-from utils.events_system import Event
+__all__ = ['CheckpointsManager', 'BestStateDetector']
 
 
 class CheckpointsManager(FolderRegistrable):
