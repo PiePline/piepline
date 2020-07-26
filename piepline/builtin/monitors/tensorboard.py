@@ -14,7 +14,7 @@ except ImportError:
     except ImportError:
         print("Can't import tensorboard. Try to install tensorboardX or update PyTorch version")
 
-from piepline.monitoring.monotors import AbstractMonitor
+from piepline.monitoring.monotors import AbstractMetricsMonitor
 from piepline.train_config.metrics import AbstractMetric, MetricsGroup
 from piepline.utils.fsm import FileStructManager, FolderRegistrable
 
@@ -23,7 +23,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
+class TensorboardMonitor(AbstractMetricsMonitor, FolderRegistrable):
     """
     Class, that manage metrics end events monitoring. It worked with tensorboard. Monitor get metrics after epoch ends and visualise it. Metrics may be float or np.array values. If
     metric is np.array - it will be shown as histogram and scalars (scalar plots contains mean valuse from array).

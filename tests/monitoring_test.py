@@ -5,7 +5,7 @@ import shutil
 import torch
 import numpy as np
 
-from piepline.monitoring.monotors import LogMonitor
+from piepline.monitoring.monotors import FileLogMonitor
 from piepline.train_config.metrics import MetricsGroup
 from piepline.utils.fsm import FileStructManager
 
@@ -19,7 +19,7 @@ class MonitorLogTest(UseFileStructure):
         fsm = FileStructManager(base_dir='data', is_continue=False)
         expected_out = os.path.join('data', 'monitors', 'metrics_log', 'metrics_log.json')
         try:
-            with LogMonitor(fsm) as m:
+            with FileLogMonitor(fsm) as m:
                 self.assertEqual(m._file, expected_out)
         except:
             self.fail('Fail initialisation')
@@ -36,7 +36,7 @@ class MonitorLogTest(UseFileStructure):
         m = SimpleMetric(name='d', coeff=4)
 
         values = []
-        with LogMonitor(fsm) as monitor:
+        with FileLogMonitor(fsm) as monitor:
             if with_final_file:
                 monitor.write_final_metrics(final_file)
             for epoch in range(10):

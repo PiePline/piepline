@@ -7,7 +7,7 @@ from torch import Tensor
 
 from piepline.train import Trainer
 from piepline import events_container
-from piepline.train_config.metrics import AbstractMetric
+from piepline.train_config.metrics import AbstractMetric, MetricsGroup
 from piepline.monitoring.hub import MonitorHub
 from piepline.train import DecayingLR
 from piepline.train_config.train_config import BaseTrainConfig
@@ -16,7 +16,7 @@ from piepline.train_config.metrics_processor import MetricsProcessor
 from piepline.utils.fsm import FileStructManager
 from piepline.utils.checkpoints_manager import CheckpointsManager, BestStateDetector
 
-from tests.common import UseFileStructure
+from tests.common import UseFileStructure, SimpleMetric
 from tests.data_processor_test import SimpleModel
 from tests.data_producer_test import TestDataProducer
 
@@ -182,3 +182,20 @@ class TrainTest(UseFileStructure):
             trainer.train()
 
             self.assertEqual(None, trainer.train_config().stages()[0].get_losses())
+
+    def test_metric_calc_in_train_loop(self):
+        fsm = FileStructManager(base_dir=self.base_dir, is_continue=False)
+        model = SimpleModel()
+        stages = [TrainStage(TestDataProducer([{'data': torch.rand(1, 3), 'target': torch.rand(1)} for _ in list(range(20))])),
+                  ValidationStage(TestDataProducer([{'data': torch.rand(1, 3), 'target': torch.rand(1)} for _ in list(range(20))]))]
+        trainer = Trainer(BaseTrainConfig(model, stages, SimpleLoss(), torch.optim.SGD(model.parameters(), lr=1)), fsm) \
+            .set_epoch_num(2)
+
+        mp = MetricsProcessor()
+        mp.add_metrics_group(MetricsGroup('grp1').add(SimpleMetric()))
+        mp.add_metrics_group(MetricsGroup('grp2').add(SimpleMetric()))
+
+        mp.subscribe_to_stage(stages[0]).subscribe_to_stage(stages[1])
+        mp.subscribe_to_trainer(trainer)
+
+        trainer.train()

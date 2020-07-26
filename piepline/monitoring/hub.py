@@ -1,4 +1,4 @@
-from piepline.monitoring.monotors import AbstractMonitor
+from piepline.monitoring.monotors import AbstractMetricsMonitor
 from piepline import events_container
 from piepline.train import Trainer
 from piepline.train_config.metrics_processor import MetricsProcessor
@@ -28,7 +28,7 @@ class MonitorHub:
         for m in self.monitors:
             m.set_epoch_num(epoch_num)
 
-    def add_monitor(self, monitor: AbstractMonitor) -> 'MonitorHub':
+    def add_monitor(self, monitor: AbstractMetricsMonitor) -> 'MonitorHub':
         """
         Connect monitor to hub
 

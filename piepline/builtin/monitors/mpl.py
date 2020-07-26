@@ -14,11 +14,11 @@ except ImportError:
 
 import numpy as np
 
-from piepline.monitoring.monotors import AbstractMonitor
+from piepline.monitoring.monotors import AbstractMetricsMonitor
 from piepline.train_config.metrics import MetricsGroup
 
 
-class MPLMonitor(AbstractMonitor):
+class MPLMonitor(AbstractMetricsMonitor):
     """
     This monitor show all data in Matplotlib plots
     """

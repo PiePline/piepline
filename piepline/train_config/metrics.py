@@ -51,6 +51,14 @@ class AbstractMetric(metaclass=ABCMeta):
         """
         return self._values
 
+    def get_value(self) -> float:
+        """
+        Get common value of collected metrics values (like mean)
+
+        :return: reduced value
+        """
+        return float(np.mean(self._values))
+
     def reset(self) -> None:
         """
         Reset array of metric values

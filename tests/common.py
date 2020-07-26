@@ -36,4 +36,4 @@ class SimpleMetric(AbstractMetric):
         self._coeff = coeff
 
     def calc(self, output: Tensor, target: Tensor) -> np.ndarray or float:
-        return F.pairwise_distance(output, target, p=2).numpy() * self._coeff
+        return F.pairwise_distance(output, target, p=2).cpu().detach().numpy() * self._coeff
