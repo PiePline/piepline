@@ -108,7 +108,7 @@ class ConsoleLossMonitor(AbstractLossMonitor):
         def on_loss(name: str, values: np.ndarray, string) -> None:
             string.append(" {}: [{:4f}, {:4f}, {:4f}];".format(name, np.min(values), np.mean(values), np.max(values)))
 
-        res_string = self.ResStr("Epoch: [{}];".format(self.epoch_num))
+        res_string = self.ResStr("Epoch: [{}];".format(self._epoch_num))
         self._iterate_by_losses(losses, lambda m, v: on_loss(m, v, res_string))
         print(res_string)
 
@@ -128,6 +128,7 @@ class FileLogMonitor(AbstractMetricsMonitor, AbstractLossMonitor, FolderRegistra
         self._fsm = fsm
         self._fsm.register_dir(self)
         self._files = {}
+        self._meta_file = None
 
     def _process_metric(self, path: List[MetricsGroup], metric: 'AbstractMetric'):
         cur_dir = self._fsm.get_path(self, create_if_non_exists=True, check=True)
@@ -137,11 +138,33 @@ class FileLogMonitor(AbstractMetricsMonitor, AbstractLossMonitor, FolderRegistra
         if not os.path.exists(cur_dir):
             os.makedirs(cur_dir)
 
-        with open(os.path.join(cur_dir, metric.name() + '.csv'), 'w') as out:
+        cur_file_path = os.path.join(cur_dir, metric.name() + '.csv')
+        with open(cur_file_path, 'w') as out:
             out.write("{}, {}\n".format(self._epoch_num, metric.get_value()))
+
+        if cur_file_path not in self._files:
+            self._files[cur_file_path] = metric.name()
+
+            if self._meta_file is None:
+                self._meta_file = os.path.join(cur_dir, 'meta.json')
+                with open(self._meta_file, 'w') as meta_out:
+                    json.dump(list(self._files.values()), meta_out)
+
+    def load(self) -> dict:
+        cur_dir = self._fsm.get_path(self, create_if_non_exists=False, check=True)
+        with open(os.path.join(cur_dir, 'meta.json'), 'r') as meta_file:
+            meta = json.load(meta_file)
+
+        res = {}
+        for path in meta:
+            cur_path = os.path.join(cur_dir, path)
+            for f in os.listdir(cur_path):
+                res[path] = np.loadtxt(os.path.join(cur_path, f), delimiter=',')
+
+        return res
 
     def _get_gir(self) -> str:
         return os.path.join('monitors', 'metrics_log')
 
     def _get_name(self) -> str:
-        return 'LogMonitor'
+        return 'FileLogMonitor'

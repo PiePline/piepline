@@ -47,8 +47,8 @@ class Predictor(BasePredictor):
 
 
 class DataProducerPredictor(BasePredictor):
-    def __init__(self, model: Module, fsm: FileStructManager, checkpoints_manager: CheckpointsManager):
-        super().__init__(model, fsm, checkpoints_manager)
+    def __init__(self, model: Module, checkpoints_manager: CheckpointsManager):
+        super().__init__(model, checkpoints_manager)
 
     def predict(self, data_producer: DataProducer, callback: callable) -> None:
         """

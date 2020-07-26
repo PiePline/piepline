@@ -5,7 +5,7 @@ import shutil
 import torch
 import numpy as np
 
-from piepline.monitoring.monotors import FileLogMonitor
+from piepline.monitoring.monitors import FileLogMonitor
 from piepline.train_config.metrics import MetricsGroup
 from piepline.utils.fsm import FileStructManager
 

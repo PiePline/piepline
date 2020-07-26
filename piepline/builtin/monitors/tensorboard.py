@@ -14,7 +14,7 @@ except ImportError:
     except ImportError:
         print("Can't import tensorboard. Try to install tensorboardX or update PyTorch version")
 
-from piepline.monitoring.monotors import AbstractMetricsMonitor
+from piepline.monitoring.monitors import AbstractMetricsMonitor
 from piepline.train_config.metrics import AbstractMetric, MetricsGroup
 from piepline.utils.fsm import FileStructManager, FolderRegistrable
 

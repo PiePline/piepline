@@ -14,7 +14,7 @@ except ImportError:
 
 import numpy as np
 
-from piepline.monitoring.monotors import AbstractMetricsMonitor
+from piepline.monitoring.monitors import AbstractMetricsMonitor
 from piepline.train_config.metrics import MetricsGroup
 
 
