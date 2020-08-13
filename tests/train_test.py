@@ -198,4 +198,8 @@ class TrainTest(UseFileStructure):
         mp.subscribe_to_stage(stages[0]).subscribe_to_stage(stages[1])
         mp.subscribe_to_trainer(trainer)
 
+        mh = MonitorHub(trainer).subscribe2metrics_processor(mp)
+
+        # TODO: continue implementing test
+
         trainer.train()
