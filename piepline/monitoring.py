@@ -92,7 +92,10 @@ class ConsoleMonitor(AbstractMonitor):
 
     def update_losses(self, losses: {}) -> None:
         def on_loss(name: str, values: np.ndarray, string) -> None:
-            string.append(" {}: [{:4f}, {:4f}, {:4f}];".format(name, np.min(values), np.mean(values), np.max(values)))
+            if isinstance(values, dict):
+                string.append(" {}: '{}';".format(name, ','.join(["{}: [{:4f}, {:4f}, {:4f}]".format(k, np.min(v), np.mean(v), np.max(v)) for k, v in values.items()])))
+            else:
+                string.append(" {}: [{:4f}, {:4f}, {:4f}];".format(name, np.min(values), np.mean(values), np.max(values)))
 
         res_string = self.ResStr("Epoch: [{}];".format(self.epoch_num))
         self._iterate_by_losses(losses, lambda m, v: on_loss(m, v, res_string))

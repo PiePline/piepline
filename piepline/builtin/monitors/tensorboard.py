@@ -71,10 +71,16 @@ class TensorboardMonitor(AbstractMonitor, FolderRegistrable):
         if self.__writer is None:
             return
 
-        def on_loss(name: str, values: np.ndarray) -> None:
-            self.__writer.add_scalars('loss', {name: np.mean(values)}, global_step=self.epoch_num)
-            self.__writer.add_histogram('{}/loss_hist'.format(name), np.clip(values, -1, 1).astype(np.float32),
-                                        global_step=self.epoch_num, bins=np.linspace(-1, 1, num=11).astype(np.float32))
+        def on_loss(name: str, values: np.ndarray or dict) -> None:
+            if isinstance(values, dict):
+                self.__writer.add_scalars('loss_{}'.format(name), {k: np.mean(v) for k, v in values.items()}, global_step=self.epoch_num)
+                for k, v in values.items():
+                    self.__writer.add_histogram('{}/loss_{}_hist'.format(name, k), np.clip(v, -1, 1).astype(np.float32),
+                                                global_step=self.epoch_num, bins=np.linspace(-1, 1, num=11).astype(np.float32))
+            else:
+                self.__writer.add_scalars('loss', {name: np.mean(values)}, global_step=self.epoch_num)
+                self.__writer.add_histogram('{}/loss_hist'.format(name), np.clip(values, -1, 1).astype(np.float32),
+                                            global_step=self.epoch_num, bins=np.linspace(-1, 1, num=11).astype(np.float32))
 
         self._iterate_by_losses(losses, on_loss)
 

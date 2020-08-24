@@ -1,9 +1,9 @@
 from abc import ABCMeta, abstractmethod
 
 from torch import Tensor
-from torch.optim import Optimizer
 from torch.nn import Module
 import numpy as np
+from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
 try:
@@ -347,14 +347,24 @@ class StandardStage(AbstractStage):
             self._losses = None
             for batch in t:
                 self._process_batch(batch, data_processor)
-                t.set_postfix({'loss': '[{:4f}]'.format(np.mean(self._losses))})
+                if isinstance(self._losses, dict):
+                    t.set_postfix({'loss': '[{}]'.format(';'.join(['{:4f}'.format(np.mean(v)) for v in self._losses.values()]))})
+                else:
+                    t.set_postfix({'loss': '[{:4f}]'.format(np.mean(self._losses))})
 
     def _process_batch(self, batch, data_processor: TrainDataProcessor):
         cur_loss = data_processor.process_batch(batch, metrics_processor=self.metrics_processor(), is_train=self._is_train)
         if self._losses is None:
             self._losses = cur_loss
         else:
-            self._losses = np.append(self._losses, cur_loss)
+            if isinstance(cur_loss, dict):
+                for k, v in cur_loss.items():
+                    if k in self._losses:
+                        self._losses[k] = np.append(self._losses[k], v)
+                    else:
+                        self._losses[k] = v
+            else:
+                self._losses = np.append(self._losses, cur_loss)
 
     def metrics_processor(self) -> MetricsProcessor or None:
         """
