@@ -1,30 +1,20 @@
-"""
-Main module for monitoring training process
-
-There is:
-
-* :class:`MonitorHub` - monitors collection for connect all monitors to :class:`Trainer`
-* :class:`AbstractMonitor` - basic class for all monitors, that will be connected to :class:`MonitorHub`
-* :class:`ConsoleMonitor` - monitor, that used for write epoch results to console
-* :class:`LogMonitor` - monitor, used for metrics logging
-"""
-
 import json
 import os
 from abc import ABCMeta
 import numpy as np
 
-from piepline.train_config import MetricsGroup
-from piepline.utils import dict_recursive_bypass
-from piepline.utils.fsm import FileStructManager, FolderRegistrable
+from piepline.utils.fsm import FolderRegistrable, FileStructManager
+from piepline.train_config.metrics import MetricsGroup
+from piepline.utils.utils import dict_recursive_bypass
 
-__all__ = ['MonitorHub', 'AbstractMonitor', 'ConsoleMonitor', 'LogMonitor']
+__all__ = ['AbstractMonitor', 'ConsoleMonitor', 'LogMonitor']
 
 
 class AbstractMonitor(metaclass=ABCMeta):
     """
     Basic class for every monitor.
     """
+
     def __init__(self):
         self.epoch_num = 0
 
@@ -80,6 +70,7 @@ class ConsoleMonitor(AbstractMonitor):
     Output looks like: ``Epoch: [#]; train: [-1, 0, 1]; validation: [-1, 0, 1]``. This 3 numbers is [min, mean, max] values of
     training stage loss values
     """
+
     class ResStr:
         def __init__(self, start: str):
             self.res = start
@@ -110,6 +101,7 @@ class LogMonitor(AbstractMonitor, FolderRegistrable):
 
     :param fsm: :class:`FileStructManager` object
     """
+
     def __init__(self, fsm: FileStructManager):
         super().__init__()
 
@@ -222,59 +214,3 @@ class LogMonitor(AbstractMonitor, FolderRegistrable):
 
     def _get_name(self) -> str:
         return 'LogMonitor'
-
-
-class MonitorHub:
-    """
-    Aggregator of monitors. This class collect monitors and provide unified interface to it's
-    """
-    def __init__(self):
-        self.monitors = []
-
-    def set_epoch_num(self, epoch_num: int) -> None:
-        """
-        Set current epoch num
-
-        :param epoch_num: num of current epoch
-        """
-        for m in self.monitors:
-            m.set_epoch_num(epoch_num)
-
-    def add_monitor(self, monitor: AbstractMonitor) -> 'MonitorHub':
-        """
-        Connect monitor to hub
-
-        :param monitor: :class:`AbstractMonitor` object
-        :return:
-        """
-        self.monitors.append(monitor)
-        return self
-
-    def update_metrics(self, metrics: {}) -> None:
-        """
-        Update metrics in all monitors
-
-        :param metrics: metrics dict with keys 'metrics' and 'groups'
-        """
-        for m in self.monitors:
-            m.update_metrics(metrics)
-
-    def update_losses(self, losses: {}) -> None:
-        """
-        Update monitor
-
-        :param losses: losses values with keys 'train' and 'validation'
-        """
-        for m in self.monitors:
-            m.update_losses(losses)
-
-    def register_event(self, text: str) -> None:
-        for m in self.monitors:
-            m.register_event(text)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        for m in self.monitors:
-            m.__exit__(exc_type, exc_val, exc_tb)

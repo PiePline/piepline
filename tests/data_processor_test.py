@@ -1,16 +1,18 @@
-import os
 import shutil
 import unittest
 
 import torch
 import numpy as np
 
-from piepline.data_processor import DataProcessor, TrainDataProcessor, Model
-from piepline.utils import FileStructManager, dict_pair_recursive_bypass, CheckpointsManager
-from piepline.train_config import TrainConfig
+from piepline.data_processor.data_processor import DataProcessor, TrainDataProcessor
+from piepline.utils.fsm import FileStructManager
+from piepline.utils.utils import dict_pair_recursive_bypass
+from piepline.utils.checkpoints_manager import CheckpointsManager
+from piepline.train_config.train_config import BaseTrainConfig
+
 from tests.common import UseFileStructure, data_remove
 
-__all__ = ['ModelTest', 'DataProcessorTest', 'TrainDataProcessorTest']
+__all__ = ['DataProcessorTest', 'TrainDataProcessorTest']
 
 
 class SimpleModel(torch.nn.Module):
@@ -51,58 +53,6 @@ class NonStandardIOModel(torch.nn.Module):
         return {'res1': res1, 'res2': res2}
 
 
-class ModelTest(UseFileStructure):
-    def test_init(self):
-        try:
-            Model(SimpleModel())
-        except:
-            self.fail('Model initialization fail')
-
-    def test_data_parallel(self):
-        try:
-            m = Model(torch.nn.DataParallel(SimpleModel()))
-            m(SimpleModel.dummy_input())
-        except:
-            self.fail('Model DataParallel pass fail')
-
-        if torch.cuda.is_available():
-            try:
-                device = torch.device('cuda')
-                m = Model(torch.nn.DataParallel(SimpleModel())).to_device(device)
-                m(SimpleModel.dummy_input().to(device))
-            except:
-                self.fail('Model DataParallel on gpu fail')
-
-    def test_saving_and_loading(self):
-        m = Model(SimpleModel())
-        m.save_weights('weights.pth')
-        m_new = Model(SimpleModel())
-        m_new.load_weights('weights.pth')
-        compare_two_models(self, m.model(), m_new.model())
-        os.remove('weights.pth')
-
-        m = SimpleModel()
-        Model(torch.nn.DataParallel(m)).save_weights('weights.pth')
-        m_new = Model(SimpleModel())
-        m_new.load_weights('weights.pth')
-        compare_two_models(self, m, m_new.model())
-        os.remove('weights.pth')
-
-        m = SimpleModel()
-        Model(m).save_weights('weights.pth')
-        m_new = SimpleModel()
-        Model(torch.nn.DataParallel(m_new)).load_weights('weights.pth')
-        compare_two_models(self, m, m_new)
-        os.remove('weights.pth')
-
-        m = SimpleModel()
-        Model(torch.nn.DataParallel(m)).save_weights('weights.pth')
-        m_new = SimpleModel()
-        Model(torch.nn.DataParallel(m_new)).load_weights('weights.pth')
-        compare_two_models(self, m, m_new)
-        os.remove('weights.pth')
-
-
 class DataProcessorTest(UseFileStructure):
     def test_initialisation(self):
         try:
@@ -137,45 +87,11 @@ class DataProcessorTest(UseFileStructure):
         self.assertFalse(res.requires_grad)
         self.assertIsNone(res.grad)
 
-    @data_remove
-    def test_continue_from_checkpoint(self):
-        def on_node(n1, n2):
-            self.assertTrue(np.array_equal(n1.numpy(), n2.numpy()))
-
-        model = SimpleModel().train()
-        dp = DataProcessor(model=model)
-        with self.assertRaises(Model.ModelException):
-            dp.save_state()
-        try:
-            fsm = FileStructManager(self.base_dir, is_continue=False)
-            dp.set_checkpoints_manager(CheckpointsManager(fsm))
-            dp.save_state()
-        except:
-            self.fail('Fail to DataProcessor load when CheckpointsManager was defined')
-
-        del dp
-
-        model_new = SimpleModel().train()
-        dp = DataProcessor(model=model_new)
-
-        with self.assertRaises(Model.ModelException):
-            dp.load()
-        fsm = FileStructManager(base_dir=self.base_dir, is_continue=True)
-        dp.set_checkpoints_manager(CheckpointsManager(fsm))
-        try:
-            fsm = FileStructManager(self.base_dir, is_continue=True)
-            dp.set_checkpoints_manager(CheckpointsManager(fsm))
-            dp.load()
-        except:
-            self.fail('Fail to DataProcessor load when CheckpointsManager was defined')
-
-        compare_two_models(self, model, model_new)
-
 
 class SimpleLoss(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.module = torch.nn.Parameter(torch.Tensor([1]), requires_grad=True)
+        self.module = torch.tensor([1.], requires_grad=True)
         self.res = None
 
     def forward(self, predict, target):
@@ -186,7 +102,7 @@ class SimpleLoss(torch.nn.Module):
 class TrainDataProcessorTest(UseFileStructure):
     def test_initialisation(self):
         model = SimpleModel()
-        train_config = TrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
+        train_config = BaseTrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
         try:
             TrainDataProcessor(train_config=train_config)
         except:
@@ -194,14 +110,14 @@ class TrainDataProcessorTest(UseFileStructure):
 
     def test_prediction_train_output(self):
         model = SimpleModel()
-        train_config = TrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
+        train_config = BaseTrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
         dp = TrainDataProcessor(train_config=train_config)
         self.assertFalse(model.fc.weight.is_cuda)
         res = dp.predict({'data': torch.rand(1, 3)}, is_train=True)
         self.assertIs(type(res), torch.Tensor)
 
         model = NonStandardIOModel()
-        train_config = TrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
+        train_config = BaseTrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
         dp = TrainDataProcessor(train_config=train_config)
         self.assertFalse(model.fc.weight.is_cuda)
         res = dp.predict({'data': {'data1': torch.rand(1, 3), 'data2': torch.rand(1, 3)}}, is_train=True)
@@ -219,14 +135,14 @@ class TrainDataProcessorTest(UseFileStructure):
 
     def test_prediction_notrain_output(self):
         model = SimpleModel()
-        train_config = TrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
+        train_config = BaseTrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
         dp = TrainDataProcessor(train_config=train_config)
         self.assertFalse(model.fc.weight.is_cuda)
         res = dp.predict({'data': torch.rand(1, 3)}, is_train=False)
         self.assertIs(type(res), torch.Tensor)
 
         model = NonStandardIOModel()
-        train_config = TrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
+        train_config = BaseTrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
         dp = TrainDataProcessor(train_config=train_config)
         self.assertFalse(model.fc.weight.is_cuda)
         res = dp.predict({'data': {'data1': torch.rand(1, 3), 'data2': torch.rand(1, 3)}}, is_train=False)
@@ -244,7 +160,7 @@ class TrainDataProcessorTest(UseFileStructure):
 
     def test_predict(self):
         model = SimpleModel().train()
-        train_config = TrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
+        train_config = BaseTrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
         dp = TrainDataProcessor(train_config=train_config)
         self.assertFalse(model.fc.weight.is_cuda)
         self.assertTrue(model.training)
@@ -255,7 +171,7 @@ class TrainDataProcessorTest(UseFileStructure):
 
     def test_train(self):
         model = SimpleModel().train()
-        train_config = TrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
+        train_config = BaseTrainConfig(model, [], torch.nn.Module(), torch.optim.SGD(model.parameters(), lr=0.1))
         dp = TrainDataProcessor(train_config=train_config)
 
         self.assertFalse(model.fc.weight.is_cuda)
@@ -269,13 +185,13 @@ class TrainDataProcessorTest(UseFileStructure):
             dp.process_batch({'data': torch.rand(1, 3), 'target': torch.rand(1)}, is_train=True)
 
         loss = SimpleLoss()
-        train_config = TrainConfig(model, [], loss, torch.optim.SGD(model.parameters(), lr=0.1))
+        train_config = BaseTrainConfig(model, [], loss, torch.optim.SGD(model.parameters(), lr=0.1))
         dp = TrainDataProcessor(train_config=train_config)
-        res = dp.process_batch({'data': torch.rand(1, 3), 'target': torch.rand(1)}, is_train=True)
+        res, out, target = dp.process_batch({'data': torch.rand(1, 3), 'target': torch.rand(1)}, is_train=True)
         self.assertTrue(model.training)
         self.assertTrue(loss.module.requires_grad)
         self.assertIsNotNone(loss.module.grad)
-        self.assertTrue(np.array_equal(res, loss.res.data.numpy()))
+        self.assertTrue(np.array_equal(res.detach().cpu().numpy(), loss.res.data.numpy()))
 
     @data_remove
     def test_continue_from_checkpoint(self):
@@ -286,29 +202,23 @@ class TrainDataProcessorTest(UseFileStructure):
         loss = SimpleLoss()
 
         for optim in [torch.optim.SGD(model.parameters(), lr=0.1), torch.optim.Adam(model.parameters(), lr=0.1)]:
-            train_config = TrainConfig(model, [], loss, optim)
+            train_config = BaseTrainConfig(model, [], loss, optim)
 
             dp_before = TrainDataProcessor(train_config=train_config)
             before_state_dict = model.state_dict().copy()
             dp_before.update_lr(0.023)
 
-            with self.assertRaises(Model.ModelException):
-                dp_before.save_state()
             try:
                 fsm = FileStructManager(base_dir=self.base_dir, is_continue=False)
-                dp_before.set_checkpoints_manager(CheckpointsManager(fsm))
-                dp_before.save_state()
+                dp_before.save_state(CheckpointsManager(fsm).optimizer_state_file())
             except:
                 self.fail("Exception on saving state when 'CheckpointsManager' specified")
 
             fsm = FileStructManager(base_dir=self.base_dir, is_continue=True)
             dp_after = TrainDataProcessor(train_config=train_config)
-            with self.assertRaises(Model.ModelException):
-                dp_after.load()
             try:
                 cm = CheckpointsManager(fsm)
-                dp_after.set_checkpoints_manager(cm)
-                dp_after.load()
+                cm.load_data_processor(dp_after)
             except:
                 self.fail('DataProcessor initialisation raises exception')
 

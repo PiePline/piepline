@@ -6,7 +6,7 @@ from torch import Tensor
 from torch.nn import functional as F
 import numpy as np
 
-from piepline.train_config import AbstractMetric
+from piepline.train_config.metrics import AbstractMetric
 
 __all__ = ['UseFileStructure', 'data_remove', 'SimpleMetric']
 
