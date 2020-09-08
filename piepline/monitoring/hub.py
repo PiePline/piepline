@@ -1,4 +1,4 @@
-from piepline.monitoring.monotors import AbstractMonitor
+from piepline.monitoring.monitors import AbstractMonitor
 from piepline import events_container
 from piepline.train import Trainer
 from piepline.train_config.metrics_processor import MetricsProcessor

@@ -9,7 +9,7 @@ from piepline.utils.fsm import FolderRegistrable, FileStructManager
 from piepline.train_config.metrics import MetricsGroup, AbstractMetric
 from piepline.utils.utils import dict_recursive_bypass
 
-__all__ = ['AbstractMetricsMonitor', 'ConsoleLossMonitor', 'FileLogMonitor']
+__all__ = ['AbstractMonitor', 'AbstractMetricsMonitor', 'ConsoleLossMonitor', 'FileLogMonitor']
 
 
 class AbstractMonitor(metaclass=ABCMeta):
@@ -74,7 +74,8 @@ class AbstractMetricsMonitor(AbstractMonitor, metaclass=ABCMeta):
             for metric in metrics_group.metrics():
                 self._process_metric([metrics_group], metric)
             for group in metrics_group.groups():
-                self._process_metric([metrics_group, group], metrics_group.name())
+                for metric in group.metrics():
+                    self._process_metric([metrics_group, group], metric)
 
     @abstractmethod
     def _process_metric(self, path: List[MetricsGroup], metric: 'AbstractMetric'):
@@ -129,26 +130,43 @@ class FileLogMonitor(AbstractMetricsMonitor, AbstractLossMonitor, FolderRegistra
         self._fsm.register_dir(self)
         self._files = {}
         self._meta_file = None
+        self._final_file = None
 
     def _process_metric(self, path: List[MetricsGroup], metric: 'AbstractMetric'):
-        cur_dir = self._fsm.get_path(self, create_if_non_exists=True, check=True)
-        for metrics_grp in path:
-            cur_dir = os.path.join(cur_dir, metrics_grp.name())
+        file_log_dir = self._fsm.get_path(self, create_if_non_exists=True, check=False)
+
+        intermediate_path = ''
+        for p in path:
+            intermediate_path = os.path.join(intermediate_path, p.name())
+        cur_dir = os.path.join(file_log_dir, intermediate_path)
 
         if not os.path.exists(cur_dir):
             os.makedirs(cur_dir)
 
+        metric_value = metric.get_value()
+
         cur_file_path = os.path.join(cur_dir, metric.name() + '.csv')
-        with open(cur_file_path, 'w') as out:
-            out.write("{}, {}\n".format(self._epoch_num, metric.get_value()))
+        with open(cur_file_path, 'a') as out:
+            out.write("{}, {}\n".format(self._epoch_num, metric_value))
+
+        if self._final_file is not None:
+            final_file_path = os.path.join(file_log_dir, self._final_file)
+            final_data = {}
+            if os.path.exists(final_file_path):
+                with open(final_file_path, 'r') as final_file:
+                    final_data = json.load(final_file)
+            final_data['/'.join([p.name() for p in path] + [metric.name()])] = metric_value
+            with open(final_file_path, 'w') as final_file:
+                json.dump(final_data, final_file)
 
         if cur_file_path not in self._files:
-            self._files[cur_file_path] = metric.name()
+            self._files[cur_file_path] = {'name': metric.name(), 'path': [p.name() for p in path]}
 
             if self._meta_file is None:
                 self._meta_file = os.path.join(cur_dir, 'meta.json')
-                with open(self._meta_file, 'w') as meta_out:
-                    json.dump(list(self._files.values()), meta_out)
+
+            with open(self._meta_file, 'w') as meta_out:
+                json.dump(self._files, meta_out)
 
     def load(self) -> dict:
         cur_dir = self._fsm.get_path(self, create_if_non_exists=False, check=True)
@@ -162,6 +180,10 @@ class FileLogMonitor(AbstractMetricsMonitor, AbstractLossMonitor, FolderRegistra
                 res[path] = np.loadtxt(os.path.join(cur_path, f), delimiter=',')
 
         return res
+
+    def write_final_metrics(self, path: str = 'metrics.json') -> 'FileLogMonitor':
+        self._final_file = path
+        return self
 
     def _get_gir(self) -> str:
         return os.path.join('monitors', 'metrics_log')
