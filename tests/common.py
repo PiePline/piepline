@@ -31,9 +31,16 @@ def data_remove(func: callable) -> callable:
 
 
 class SimpleMetric(AbstractMetric):
-    def __init__(self, name: str = None, coeff: float = 1):
+    def __init__(self, name: str = None, coeff: float = 1, collect_values: bool = False):
         super().__init__('SimpleMetric' if name is None else name)
         self._coeff = coeff
+        self._collect_values = collect_values
+        self._inputs = []
 
     def calc(self, output: Tensor, target: Tensor) -> np.ndarray or float:
-        return F.pairwise_distance(output, target, p=2).cpu().detach().numpy() * self._coeff
+        if self._collect_values:
+            if len(self._values) == 0:
+                self._inputs = []
+            self._inputs.append((output.clone(), target.clone()))
+        res = F.pairwise_distance(output, target, p=2).cpu().detach().numpy() * self._coeff
+        return res

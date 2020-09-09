@@ -1,10 +1,13 @@
+import json
 import os
 from random import randint
 
 import torch
 import numpy as np
 from torch import Tensor
+from torch.nn import functional as F
 
+from monitoring.monitors import FileLogMonitor
 from piepline.train import Trainer
 from piepline import events_container
 from piepline.train_config.metrics import AbstractMetric, MetricsGroup
@@ -192,14 +195,22 @@ class TrainTest(UseFileStructure):
             .set_epoch_num(2)
 
         mp = MetricsProcessor()
-        mp.add_metrics_group(MetricsGroup('grp1').add(SimpleMetric()))
-        mp.add_metrics_group(MetricsGroup('grp2').add(SimpleMetric()))
+        metric1 = SimpleMetric(coeff=1, collect_values=True)
+        # metric2 = SimpleMetric(coeff=1.7, collect_values=True)
+        mp.add_metrics_group(MetricsGroup('grp1').add(metric1))
+        # mp.add_metrics_group(MetricsGroup('grp2').add(metric2))
 
-        mp.subscribe_to_stage(stages[0]).subscribe_to_stage(stages[1])
-        mp.subscribe_to_trainer(trainer)
+        mp.subscribe_to_stage(stages[0])  # .subscribe_to_stage(stages[1])
+        # mp.subscribe_to_trainer(trainer)
 
-        mh = MonitorHub(trainer).subscribe2metrics_processor(mp)
-
-        # TODO: continue implementing test
+        file_monitor_hub = FileLogMonitor(fsm).write_final_metrics()
+        MonitorHub(trainer).subscribe2metrics_processor(mp).add_monitor(file_monitor_hub)
 
         trainer.train()
+
+        with open(os.path.join(file_monitor_hub.get_dir(), 'metrics.json'), 'r') as metrics_file:
+            metrics = json.load(metrics_file)
+
+        self.assertAlmostEqual(metrics['grp1/SimpleMetric'],
+                               float(np.mean([F.pairwise_distance(i[0], i[1], p=2).cpu().detach().numpy() for i in metric1._inputs])),
+                               delta=1e-2)

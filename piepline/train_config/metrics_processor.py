@@ -23,10 +23,6 @@ class MetricsProcessor:
         events_container.event(stage, 'STAGE_END').add_callback(lambda s: self.reset_metrics())
         return self
 
-    def subscribe_to_trainer(self, trainer: Trainer) -> 'MetricsProcessor':
-        events_container.event(trainer, 'EPOCH_END').add_callback(lambda s: self.reset_metrics())
-        return self
-
     def add_metric(self, metric: AbstractMetric) -> AbstractMetric:
         """
         Add :class:`AbstractMetric` object

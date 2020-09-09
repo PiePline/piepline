@@ -7,7 +7,6 @@ import numpy as np
 
 from piepline.utils.fsm import FolderRegistrable, FileStructManager
 from piepline.train_config.metrics import MetricsGroup, AbstractMetric
-from piepline.utils.utils import dict_recursive_bypass
 
 __all__ = ['AbstractMonitor', 'AbstractMetricsMonitor', 'ConsoleLossMonitor', 'FileLogMonitor']
 
@@ -107,11 +106,10 @@ class ConsoleLossMonitor(AbstractLossMonitor):
 
     def update_losses(self, losses: {}) -> None:
         def on_loss(name: str, values: np.ndarray, string) -> None:
-            string.append(" {}: [{:4f}, {:4f}, {:4f}];".format(name, np.min(values), np.mean(values), np.max(values)))
+            string.append(" {}: [{:4f}, {:4f}];".format(name, np.median(values), np.std(values)))
 
         res_string = self.ResStr("Epoch: [{}];".format(self._epoch_num))
         self._iterate_by_losses(losses, lambda m, v: on_loss(m, v, res_string))
-        print(res_string)
 
 
 class FileLogMonitor(AbstractMetricsMonitor, AbstractLossMonitor, FolderRegistrable):
@@ -163,7 +161,7 @@ class FileLogMonitor(AbstractMetricsMonitor, AbstractLossMonitor, FolderRegistra
             self._files[cur_file_path] = {'name': metric.name(), 'path': [p.name() for p in path]}
 
             if self._meta_file is None:
-                self._meta_file = os.path.join(cur_dir, 'meta.json')
+                self._meta_file = os.path.join(file_log_dir, 'meta.json')
 
             with open(self._meta_file, 'w') as meta_out:
                 json.dump(self._files, meta_out)
@@ -184,6 +182,9 @@ class FileLogMonitor(AbstractMetricsMonitor, AbstractLossMonitor, FolderRegistra
     def write_final_metrics(self, path: str = 'metrics.json') -> 'FileLogMonitor':
         self._final_file = path
         return self
+
+    def get_dir(self) -> str:
+        return self._fsm.get_path(self, create_if_non_exists=False, check=False)
 
     def _get_gir(self) -> str:
         return os.path.join('monitors', 'metrics_log')
