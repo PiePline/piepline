@@ -7,7 +7,7 @@ import numpy as np
 from torch import Tensor
 from torch.nn import functional as F
 
-from monitoring.monitors import FileLogMonitor
+from piepline.monitoring.monitors import FileLogMonitor
 from piepline.train import Trainer
 from piepline import events_container
 from piepline.train_config.metrics import AbstractMetric, MetricsGroup
