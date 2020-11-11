@@ -16,7 +16,7 @@ Neural networks training pipeline based on PyTorch. Designed to standardize trai
 
 # Getting started:
 ### Documentation
-[![Documentation Status](https://readthedocs.org/projects/piepline/badge/?version=stable)](https://piepline.readthedocs.io/en/stable/?badge=stable)
+| Stable: [![Documentation Status](https://readthedocs.org/projects/piepline/badge/?version=stable)](https://piepline.readthedocs.io/en/stable/?badge=stable) | Latest: [![Documentation Status](https://readthedocs.org/projects/piepline/badge/?version=latest)](https://piepline.readthedocs.io/en/stable/?badge=latest) |
 * [See the full documentation there](https://piepline.readthedocs.io/en/stable/)
 * [Read getting started guide](https://piepline.readthedocs.io/en/stable/getting_started/index.html)
 
