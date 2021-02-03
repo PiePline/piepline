@@ -45,7 +45,8 @@ class MonitorHub:
         :param metrics: metrics dict with keys 'metrics' and 'groups'
         """
         for m in self.monitors:
-            m.update_metrics(metrics)
+            if hasattr(m, 'update_metrics'):
+                m.update_metrics(metrics)
 
     def update_losses(self, losses: {}) -> None:
         """
@@ -54,7 +55,8 @@ class MonitorHub:
         :param losses: losses values with keys 'train' and 'validation'
         """
         for m in self.monitors:
-            m.update_losses(losses)
+            if hasattr(m, 'update_losses'):
+                m.update_losses(losses)
 
     def register_event(self, text: str) -> None:
         for m in self.monitors:

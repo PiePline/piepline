@@ -110,6 +110,7 @@ class ConsoleLossMonitor(AbstractLossMonitor):
 
         res_string = self.ResStr("Epoch: [{}];".format(self._epoch_num))
         self._iterate_by_losses(losses, lambda m, v: on_loss(m, v, res_string))
+        print(res_string)
 
 
 class FileLogMonitor(AbstractMetricsMonitor, AbstractLossMonitor, FolderRegistrable):
