@@ -22,21 +22,26 @@ class BasePredictor(metaclass=ABCMeta):
         checkpoints_manager.load_model_weights(model)
         checkpoints_manager.pack()
 
+    def data_processor(self) -> DataProcessor:
+        return self._data_processor
+
 
 class Predictor(BasePredictor):
     """
     Predictor run inference by training parameters
 
-    :param model: model object, used for predict
-    :param fsm: :class:`FileStructManager` object
+    Args:
+        model (Module): model object, used for predict
+        checkpoints_manager (:class:`CheckpointsManager`): checkpoints manager
+        device (torch.device or str): target device
     """
 
-    def __init__(self, model: Module, checkpoints_manager: CheckpointsManager, device: torch.device = None):
+    def __init__(self, model: Module, checkpoints_manager: CheckpointsManager, device: torch.device or str = None):
         super().__init__(model, checkpoints_manager, device=device)
 
     def predict(self, data: torch.Tensor or dict):
         """
-        Predict ine data
+        Predict one data batch
 
         :param data: data as :class:`torch.Tensor` or dict with key ``data``
         :return: processed output

@@ -24,13 +24,33 @@ class DataProcessor:
         self._checkpoints_manager = None
         self._model = model
         self._device = device
+
         self._pick_model_input = lambda data: data['data']
+        self._data_preprocess = lambda data: data
+        self._data_to_device = self._pass_object_to_device
 
     def model(self) -> Module:
         """
         Get current module
         """
         return self._model
+
+    def predict(self, data: torch.Tensor or dict) -> object:
+        """
+        Make predict by data
+
+        :param data: data as :class:`torch.Tensor` or dict with key ``data``
+        :return: processed output
+        :rtype: the model output type
+        """
+        self.model().eval()
+        with torch.no_grad():
+            output = self._model(self._data_to_device(self._data_preprocess(self._pick_model_input(data))))
+        return output
+
+    def set_data_to_device(self, data_to_device: callable) -> 'DataProcessor':
+        self._data_to_device = data_to_device
+        return self
 
     def set_pick_model_input(self, pick_model_input: callable) -> 'DataProcessor':
         """
@@ -60,18 +80,51 @@ class DataProcessor:
         self._pick_model_input = pick_model_input
         return self
 
-    def predict(self, data: torch.Tensor or dict) -> object:
+    def set_data_preprocess(self, data_preprocess: callable) -> 'DataProcessor':
         """
-        Make predict by data
+        Set callback, that will get output from :mod:`DataLoader` and return preprocessed data.
+        For example may be used for pass data to device.
 
-        :param data: data as :class:`torch.Tensor` or dict with key ``data``
-        :return: processed output
-        :rtype: the model output type
+        Default mode:
+
+        .. highlight:: python
+        .. code-block:: python
+
+        :meth:`_pass_data_to_device`
+
+        Args:
+            data_preprocess (callable): preprocess callable. This callback need to get one parameter: dataset output
+
+        Returns:
+            self object
+
+        Examples:
+
+        .. highlight:: python
+        .. code-block:: python
+
+            from piepline.utils import dict_recursive_bypass
+            data_processor.set_data_preprocess(lambda data: dict_recursive_bypass(data, lambda v: v.cuda()))
         """
-        self.model().eval()
-        with torch.no_grad():
-            output = self._model(self._pick_model_input(data))
-        return output
+        self._data_preprocess = data_preprocess
+        return self
+
+    def _pass_object_to_device(self, data) -> torch.Tensor or dict:
+        """
+        Internal method, that pass data to specified device
+        :param data: data as any object type. If will passed to device if it's instance of :class:`torch.Tensor` or dict with key
+        ``data``. Otherwise data will be doesn't changed
+        :return: processed on target device
+        """
+        if self._device is None:
+            return data
+
+        if isinstance(data, dict):
+            return dict_recursive_bypass(data, lambda v: v.to(self._device))
+        elif isinstance(data, torch.Tensor):
+            return data.to(self._device)
+        else:
+            return data
 
 
 class TrainDataProcessor(DataProcessor):
@@ -91,10 +144,10 @@ class TrainDataProcessor(DataProcessor):
     def __init__(self, train_config: 'BaseTrainConfig', device: torch.device = None):
         super().__init__(train_config.model(), device)
 
-        self._data_preprocess = (lambda data: data) if device is None else self._pass_data_to_device
         self._pick_target = lambda data: data['target']
+        self._target_preprocess = lambda data: data
+        self._target_to_device = self._pass_object_to_device
 
-        self._loss_input_preproc = lambda data: data
         self._criterion = train_config.loss()
         self._optimizer = train_config.optimizer()
 
@@ -114,7 +167,7 @@ class TrainDataProcessor(DataProcessor):
 
         if is_train:
             self.model().train()
-            output = self._model(self._pick_model_input(data))
+            output = self._model(self._data_to_device(self._data_preprocess(self._pick_model_input(data))))
         else:
             output = super().predict(data)
 
@@ -131,13 +184,11 @@ class TrainDataProcessor(DataProcessor):
         Returns:
             tuple of `class`:torch.Tensor of losses, predicts and targets with shape (N, ...) where N is batch size
         """
-        internal_batch = self._data_preprocess(batch)
-
         if is_train:
             self._optimizer.zero_grad()
 
-        res = self.predict(internal_batch, is_train)
-        target = self._pick_target(internal_batch)
+        res = self.predict(batch, is_train)
+        target = self._target_to_device(self._target_preprocess(self._pick_target(batch)))
         loss = self._criterion(res, target)
 
         if is_train:
@@ -170,6 +221,12 @@ class TrainDataProcessor(DataProcessor):
         """
         return {'weights': self._model.model().state_dict(), 'optimizer': self._optimizer.state_dict()}
 
+    def save_state(self, path: str) -> None:
+        """
+        Save state of optimizer and perform epochs number
+        """
+        torch.save(self.optimizer().state_dict(), path)
+
     def set_pick_target(self, pick_target: callable) -> 'DataProcessor':
         """
         Set callback, that will get output from :mod:`DataLoader` and return target.
@@ -198,20 +255,20 @@ class TrainDataProcessor(DataProcessor):
         self._pick_target = pick_target
         return self
 
-    def set_data_preprocess(self, data_preprocess: callable) -> 'DataProcessor':
+    def set_target_preprocess(self, target_preprocess: callable) -> 'DataProcessor':
         """
-        Set callback, that will get output from :mod:`DataLoader` and return preprocessed data.
-        For example may be used for pass data to device.
+        Set callback, that will get output from :mod:`DataLoader` and return preprocessed target.
+        For example may be used for pass target to device.
 
         Default mode:
 
         .. highlight:: python
         .. code-block:: python
 
-        :meth:`_pass_data_to_device`
+        :meth:`_pass_target_to_device`
 
         Args:
-            data_preprocess (callable): preprocess callable. This callback need to get one parameter: dataset output
+            target_preprocess (callable): preprocess callable. This callback need to get one parameter: targetset output
 
         Returns:
             self object
@@ -222,27 +279,11 @@ class TrainDataProcessor(DataProcessor):
         .. code-block:: python
 
             from piepline.utils import dict_recursive_bypass
-            data_processor.set_data_preprocess(lambda data: dict_recursive_bypass(data, lambda v: v.cuda()))
+            target_processor.set_target_preprocess(lambda target: dict_recursive_bypass(target, lambda v: v.cuda()))
         """
-        self._data_preprocess = data_preprocess
+        self._target_preprocess = target_preprocess
         return self
 
-    def _pass_data_to_device(self, data) -> torch.Tensor or dict:
-        """
-        Internal method, that pass data to specified device
-        :param data: data as any object type. If will passed to device if it's instance of :class:`torch.Tensor` or dict with key
-        ``data``. Otherwise data will be doesn't changed
-        :return: processed on target device
-        """
-        if isinstance(data, dict):
-            return dict_recursive_bypass(data, lambda v: v.to(self._device))
-        elif isinstance(data, torch.Tensor):
-            return data.to(self._device)
-        else:
-            return data
-
-    def save_state(self, path: str) -> None:
-        """
-        Save state of optimizer and perform epochs number
-        """
-        torch.save(self.optimizer().state_dict(), path)
+    def set_target_to_device(self, target_to_device: callable) -> 'DataProcessor':
+        self._target_to_device = target_to_device
+        return self
