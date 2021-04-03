@@ -110,7 +110,6 @@ class Trainer(MessageReceiver):
             on_epoch_end_callback()
 
     :param train_config: :class:`TrainConfig` object
-    :param fsm: :class:`FileStructManager` object
     :param device: device for training process
     """
 
@@ -122,10 +121,8 @@ class Trainer(MessageReceiver):
         def __str__(self):
             return self._msg
 
-    def __init__(self, train_config: BaseTrainConfig, fsm: FileStructManager, device: torch.device = None):
+    def __init__(self, train_config: BaseTrainConfig, device: torch.device = None):
         MessageReceiver.__init__(self)
-
-        self._fsm = fsm
 
         self.__epoch_num, self._cur_epoch_id = 100, 0
 
