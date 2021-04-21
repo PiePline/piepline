@@ -6,7 +6,6 @@ import torch
 from piepline import events_container
 from piepline.train_config.train_config import BaseTrainConfig
 from piepline.data_processor.data_processor import TrainDataProcessor
-from piepline.utils.fsm import FileStructManager
 from piepline.utils.events_system import Event
 from piepline.utils.messages_system import MessageReceiver
 

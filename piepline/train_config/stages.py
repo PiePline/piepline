@@ -8,17 +8,6 @@ from piepline.data_producer.data_producer import DataProducer
 from piepline import events_container
 from piepline.utils.events_system import Event
 
-try:
-    from IPython import get_ipython
-
-    ip = get_ipython()
-    if ip is not None:
-        from tqdm import tqdm_notebook as tqdm
-    else:
-        from tqdm import tqdm
-except ImportError:
-    from tqdm import tqdm
-
 
 __all__ = ['AbstractStage', 'TrainStage', 'ValidationStage']
 
@@ -117,12 +106,10 @@ class StandardStage(AbstractStage):
     def _run_internal(self, data_loader: DataLoader, name: str, data_processor: 'TrainDataProcessor'):
         self._epoch_start_event()
 
-        with tqdm(data_loader, desc=name, leave=False) as t:
-            self._losses = None
-            for batch in t:
-                self._process_batch(batch, data_processor)
-                self._batch_processed()
-                t.set_postfix({'loss': '[{:4f}]'.format(np.mean(self._losses))})
+        self._losses = None
+        for batch in data_loader:
+            self._process_batch(batch, data_processor)
+            self._batch_processed()
 
     def _after_epoch_end(self):
         self._losses = None
