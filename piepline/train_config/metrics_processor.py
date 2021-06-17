@@ -53,9 +53,9 @@ class MetricsProcessor:
         :param target: target value
         """
         for metric in self._metrics:
-            metric.calc(output, target)
+            metric._calc(output, target)
         for group in self._metrics_groups:
-            group.calc(output, target)
+            group._calc(output, target)
 
     def reset_metrics(self) -> None:
         """
