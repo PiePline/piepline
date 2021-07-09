@@ -83,6 +83,7 @@ class StandardStage(AbstractStage):
         self.data_loader = None
         self.data_producer = data_producer
         self._losses = None
+        self._last_losses = None
         self._is_train = is_train
 
         self._last_result = None
@@ -112,8 +113,10 @@ class StandardStage(AbstractStage):
             self._batch_processed()
 
     def _after_epoch_end(self):
+        self._last_losses = self._losses
         self._losses = None
         self._last_result = None
+
 
     def _process_batch(self, batch, data_processor: 'TrainDataProcessor'):
         cur_loss, cur_predict, cur_target = data_processor.process_batch(batch, is_train=self._is_train)
@@ -130,7 +133,7 @@ class StandardStage(AbstractStage):
 
         :return: array of losses
         """
-        return self._losses
+        return self._losses if self._losses is not None else self._last_losses
 
     def get_last_result(self) -> Dict['output', 'target']:
         return self._last_result
