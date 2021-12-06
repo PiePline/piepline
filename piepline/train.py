@@ -1,6 +1,8 @@
 """
 The main module for training process
 """
+import math
+
 import torch
 
 from piepline import events_container
@@ -74,6 +76,7 @@ class DecayingLR(LearningRate):
         if metric_val < self._cur_min_target_val:
             self._cur_step = 1
             self._cur_min_target_val = metric_val
+            return self._value
 
         if self._cur_step > 0 and (self._cur_step % self._patience) == 0:
             self._value *= self._decay_coefficient
@@ -88,6 +91,76 @@ class DecayingLR(LearningRate):
         self._value = value
         self._cur_step = 0
         self._cur_min_target_val = None
+
+
+class CosineAnnealingLR(LearningRate):
+    """
+    This class provide lr decaying by defined metric value (by :arg:`target_value_clbk`).
+    If metric value doesn't update minimum after defined number of steps (:arg:`patience`) - lr was decaying
+    by defined coefficient (:arg:`decay_coefficient`).
+
+    :param T_max: Maximum number of iterations.
+    :param eta_min: Minimum learning rate. Default: 0.
+    """
+
+    def __init__(self, start_value: float, T_max: int, eta_min: float = 0):
+        super().__init__(start_value)
+        self._start_value = start_value
+        self._T_max = T_max
+        self._eta_min = eta_min
+        self._cur_step = 1
+
+    def value(self) -> float:
+        """
+        Get value of current learning rate
+
+        :return: learning rate value
+        """
+        if self._cur_step > self._T_max:
+            self._cur_step = 1
+        self._value = self._eta_min + (self._start_value - self._eta_min) \
+                      * (1 + math.cos(math.pi * self._cur_step / self._T_max)) / 2
+        self._cur_step += 1
+
+        return self._value
+
+    def set_value(self, value):
+        self._value = value
+        self._cur_step = 0
+
+
+class StepLR(LearningRate):
+    """
+    This class provide lr decaying by defined metric value (by :arg:`target_value_clbk`).
+    If metric value doesn't update minimum after defined number of steps (:arg:`patience`) - lr was decaying
+    by defined coefficient (:arg:`decay_coefficient`).
+
+    :param step_size: Period of learning rate decay.
+    :param eta_min: Multiplicative factor of learning rate decay. Default: 0.1.
+    """
+
+    def __init__(self, start_value: float, step_size: int, gamma: float = 0.1):
+        super().__init__(start_value)
+        self._start_value = start_value
+        self._step_size = step_size
+        self._gamma = gamma
+        self._cur_step = 1
+
+    def value(self) -> float:
+        """
+        Get value of current learning rate
+
+        :return: learning rate value
+        """
+        if self._cur_step % self._step_size == 0:
+            self._value *= self._gamma
+        self._cur_step += 1
+
+        return self._value
+
+    def set_value(self, value):
+        self._value = value
+        self._cur_step = 0
 
 
 class Trainer(MessageReceiver):
@@ -144,6 +217,9 @@ class Trainer(MessageReceiver):
         """
         self.__epoch_num = epoch_number
         return self
+
+    def set_lr_scheduler(self, lr_scheduler):
+        self._lr = lr_scheduler
 
     def enable_lr_decaying(self, coeff: float, patience: int, target_val_clbk: callable) -> 'Trainer':
         """
