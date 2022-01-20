@@ -123,6 +123,8 @@ class DataProcessor:
             return dict_recursive_bypass(data, lambda v: v.to(self._device))
         elif isinstance(data, torch.Tensor):
             return data.to(self._device)
+        elif isinstance(data, list):
+            return [self._pass_object_to_device(el) for el in data]
         else:
             return data
 
